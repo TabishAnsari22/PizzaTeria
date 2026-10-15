@@ -1,6 +1,6 @@
-# FORNO
+# Pizza Teria
 
-A premium pizza concept built with Next.js, JavaScript, Tailwind CSS, Motion, React Three Fiber and Three.js.
+A dark, red-accented pizza concept built with Next.js, JavaScript, Tailwind CSS, Motion, React Three Fiber and Three.js. Fire. Flour. Obsession.
 
 ## Develop
 
@@ -17,7 +17,7 @@ Open http://127.0.0.1:3000. Node.js 20.9 or newer is required; Node.js 22 is rec
 npm run build
 ```
 
-The site exports to `out/` and can be hosted as static files. No API keys or remote 3D assets are required.
+The site exports to `out/` and can be hosted as static files. Run `npm start` to preview the production export at http://127.0.0.1:3001. No API keys or remote 3D assets are required.
 
 ## Experience
 

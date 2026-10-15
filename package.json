@@ -1,11 +1,11 @@
 {
-  "name": "forno-pizza",
+  "name": "pizza-teria",
   "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1",
     "build": "next build",
-    "start": "next start",
+    "start": "node scripts/preview.mjs",
     "verify": "node scripts/verify.mjs"
   },
   "dependencies": {

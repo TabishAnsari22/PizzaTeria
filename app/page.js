@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { motion, useScroll, useTransform, useReducedMotion, AnimatePresence } from 'motion/react';
-import { ArrowUpRight, ArrowDown, ArrowRight, Plus, Minus, X, ShoppingBag, Menu, Flame, Leaf, Clock3, Check, MapPin, ChevronRight } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { motion, useMotionValue, useSpring, useScroll, useTransform, useReducedMotion, AnimatePresence } from 'motion/react';
+import { ArrowUpRight, ArrowDown, ArrowRight, Plus, Minus, X, ShoppingBag, Menu, Flame, Leaf, Clock3, Check, Play, ChevronRight } from 'lucide-react';
 import PizzaJourney from '../components/PizzaJourney';
 
 const pizzas = [
-  { id: 'margherita', image: '/images/pizza-hero.webp', name: 'The Margherita', note: 'THE ONE THAT STARTED IT ALL', description: 'San Marzano tomato, fior di latte, fresh basil, extra virgin olive oil.', price: 1450, type: 'Classics', className: 'margherita', tag: 'The original' },
+  { id: 'margherita', image: '/images/pizza-signature.webp', name: 'The Margherita', note: 'THE ONE THAT STARTED IT ALL', description: 'San Marzano tomato, fior di latte, fresh basil, extra virgin olive oil.', price: 1450, type: 'Classics', className: 'margherita', tag: 'The original' },
   { id: 'diavola', image: '/images/pizza-diavola.webp', name: 'Hot Honey Diavola', note: 'A LITTLE SWEET. A LITTLE HEAT.', description: 'Spicy pepperoni, mozzarella, chilli flakes, a drizzle of hot honey.', price: 1850, type: 'Signatures', className: 'diavola', tag: 'A little heat' },
   { id: 'verde', image: '/images/pizza-verde.webp', name: 'The Garden Party', note: 'STRAIGHT FROM THE GOOD EARTH', description: 'Basil pesto, roasted peppers, creamy burrata, rocket, parmesan.', price: 1750, type: 'Vegetarian', className: 'verde', tag: 'Plant powered' },
   { id: 'tartufo', image: '/images/pizza-tartufo.webp', name: 'Midnight Tartufo', note: 'YOUR NEW EVENING RITUAL', description: 'Wild mushrooms, truffle cream, fior di latte, fresh thyme.', price: 2150, type: 'Signatures', className: 'tartufo', tag: 'Something special' },
@@ -21,7 +21,7 @@ function Reveal({ children, className = '', delay = 0 }) {
 }
 
 function Brand({ light = false, onClick }) {
-  return <a href="#" onClick={onClick} aria-label="FORNO home" className={`brand ${light ? 'brand-light' : ''}`}><span className="brand-flower">✳</span>forno<span className="brand-dot">®</span></a>;
+  return <a href="#" onClick={onClick} aria-label="Pizza Teria home" className={`brand ${light ? 'brand-light' : ''}`}><span className="brand-mark"><Flame size={27} strokeWidth={1.4}/></span><span className="brand-copy"><strong>PIZZA</strong><strong>TERIA</strong></span><span className="brand-dot">®</span></a>;
 }
 
 function Basil({ className = '' }) {
@@ -32,22 +32,42 @@ function Hero() {
   const ref = useRef(null);
   const reduce = useReducedMotion();
   const { scrollYProgress } = useScroll({ target: ref, offset: ['start start', 'end start'] });
-  const y = useTransform(scrollYProgress, [0, 1], [0, reduce ? 0 : 110]);
-  const rotate = useTransform(scrollYProgress, [0, 1], [-8, reduce ? -8 : 15]);
+  const y = useTransform(scrollYProgress, [0, 1], [0, reduce ? 0 : 135]);
+  const rotate = useTransform(scrollYProgress, [0, 1], [-12, reduce ? -12 : 24]);
+  const orbit = useTransform(scrollYProgress, [0, 1], [-20, reduce ? -20 : 40]);
+  const pointerX = useMotionValue(0);
+  const pointerY = useMotionValue(0);
+  const tiltX = useSpring(pointerY, { stiffness: 95, damping: 24 });
+  const tiltY = useSpring(pointerX, { stiffness: 95, damping: 24 });
+  const move = event => {
+    if (reduce || event.pointerType !== 'mouse') return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    pointerX.set(((event.clientX - bounds.left) / bounds.width - .5) * 14);
+    pointerY.set(-((event.clientY - bounds.top) / bounds.height - .5) * 12);
+  };
   return <section className="hero" ref={ref} aria-labelledby="hero-heading">
-    <div className="hero-topline"><span className="eyebrow"><span className="tiny-dot"/> SLOW MADE. FAST LOVED.</span><span className="hero-location">ITALIAN SOUL. LOCAL HEART.</span></div>
-    <motion.div className="hero-heading-wrap" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, ease }}>
-      <h1 id="hero-heading">A little fire.<br/>A lot of <em>soul.</em><span className="heading-star">✳</span></h1>
-      <p>Good dough. Great ingredients. A little obsession.<br/>Pizza the way it was always meant to be.</p>
-    </motion.div>
-    <motion.div className="hero-pizza-wrap" style={{ y, rotate }} initial={{ opacity: 0, scale: .8 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 1.3, delay: .12, ease }}>
-      <img className="hero-pizza" src="/images/pizza-hero.webp" alt="Wood-fired Margherita with golden blistered crust, fresh basil and melted mozzarella" fetchPriority="high" width="1254" height="1254"/>
-    </motion.div>
-    <Basil className="floating-basil basil-one"/><Basil className="floating-basil basil-two"/>
-    <div className="hero-side hero-side-left"><div className="small-rule"/><span className="eyebrow">A BETTER KIND OF CIRCLE</span><p>Hand-stretched.<br/>Wood-fired.<br/>Made with amore.</p><a className="text-link" href="#menu">Find your favourite <ArrowUpRight size={16}/></a></div>
-    <div className="hero-seal" aria-label="Handcrafted with love"><svg viewBox="0 0 120 120" className="seal-ring"><defs><path id="seal-circle" d="M60 60m-44 0a44 44 0 1 1 88 0a44 44 0 1 1-88 0"/></defs><text><textPath href="#seal-circle" textLength="275">HANDCRAFTED WITH LOVE · ALWAYS · </textPath></text></svg><span>48<small>HOUR DOUGH</small></span></div>
-    <div className="hero-bottom"><span>Not just pizza.<br/><strong>Your next little obsession.</strong></span><a href="#journey" className="scroll-cue"><span>SCROLL TO SEE THE GOODNESS</span><span className="round-arrow"><ArrowDown size={17}/></span></a><a className="button button-green hero-order" href="#menu">Explore the menu <ArrowUpRight size={17}/></a></div>
-    <span className="hero-annotation">THE MARGHERITA — SIMPLE. PERFECT.</span>
+    <div className="hero-topline"><span className="eyebrow"><span className="tiny-dot"/> THE ART OF A PERFECT PIZZA</span><span className="hero-location">SLOW CRAFT. BOLD CHARACTER.</span></div>
+    <div className="hero-grid">
+      <motion.div className="hero-editorial" initial={{ opacity: 0, y: reduce ? 0 : 35 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1.1, ease }}>
+        <span className="eyebrow hero-kicker">CRAFTED IN FIRE. FINISHED WITH SOUL.</span>
+        <h1 id="hero-heading">Fire. Flour.<br/><em>Obsession.</em></h1>
+        <p className="hero-description">A blistered crust. A molten centre. A moment<br className="desktop-break"/> worth slowing down for. This is Pizza Teria.</p>
+        <div className="hero-actions"><a className="button button-red" href="#menu">Explore the menu <ArrowUpRight size={17}/></a><a className="hero-story-link" href="#journey"><span><Play size={11} fill="currentColor"/></span>Watch the craft</a></div>
+        <div className="hero-mini-facts"><div><strong>48<span>H</span></strong><span>SLOW FERMENTATION</span></div><div><strong>450<span>°C</span></strong><span>WOOD-FIRED PERFECTION</span></div><div><strong>100<span>%</span></strong><span>PURE OBSESSION</span></div></div>
+      </motion.div>
+      <div className="hero-art" onPointerMove={move} onPointerLeave={() => { pointerX.set(0); pointerY.set(0); }}>
+        <div className="pizza-aura"/>
+        <motion.div className="hero-orbit orbit-one" style={{ rotate: orbit }}/><div className="hero-orbit orbit-two"/>
+        <motion.div className="hero-pizza-wrap" style={{ y, rotateZ: rotate, rotateX: tiltX, rotateY: tiltY }} initial={{ opacity: 0, scale: .86 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 1.6, delay: .12, ease }}>
+          <img className="hero-pizza" src="/images/pizza-signature.webp" alt="Pizza Teria signature Margherita, with a charred artisan crust, molten mozzarella, rich tomato and fresh basil" fetchPriority="high" width="1254" height="1254"/>
+        </motion.div>
+        <Basil className="floating-basil basil-one"/><Basil className="floating-basil basil-two"/>
+        <div className="hero-seal" aria-label="Handcrafted, never ordinary"><svg viewBox="0 0 120 120" className="seal-ring"><defs><path id="seal-circle" d="M60 60m-44 0a44 44 0 1 1 88 0a44 44 0 1 1-88 0"/></defs><text><textPath href="#seal-circle" textLength="275">HANDCRAFTED · NEVER ORDINARY · </textPath></text></svg><Flame size={29} strokeWidth={1}/></div>
+        <div className="hero-floating-note"><span>01 / THE HOUSE SIGNATURE</span><strong>Margherita, perfected.</strong><span className="hero-note-line"/></div>
+      </div>
+    </div>
+    <div className="hero-bottom"><span>FIRE IS OUR SIGNATURE.</span><a href="#journey" className="scroll-cue"><span>SCROLL TO EXPERIENCE</span><span className="round-arrow"><ArrowDown size={17}/></span></a><span className="hero-edition">THE PIZZA TERIA COLLECTION <span>01 — 04</span></span></div>
+    <span className="hero-big-type" aria-hidden="true">PIZZA TERIA</span>
   </section>;
 }
 
@@ -79,10 +99,10 @@ function Cart({ items, onClose, onUpdate, onClear }) {
     <motion.aside className="cart-panel" role="dialog" aria-modal="true" aria-labelledby="cart-heading" initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ duration: .4, ease }}>
       <div className="cart-top"><span className="eyebrow">A LITTLE HAPPINESS, TO GO</span><button className="icon-button" ref={closeRef} aria-label="Close bag" onClick={onClose}><X/></button></div>
       <h2 id="cart-heading">{ordered ? 'Good things are coming.' : checkout ? 'Your happy place.' : 'Your pizza bag.'}</h2>
-      {ordered ? <div className="order-success"><span className="success-mark"><Check size={34}/></span><h3>That’s amore.</h3><p>Your demo order is complete. This preview doesn’t send a real order or take payment.</p><button className="button button-green" onClick={onClose}>Keep exploring <ArrowUpRight size={18}/></button></div> : items.length === 0 ? <div className="cart-empty"><ShoppingBag size={50} strokeWidth={1}/><p>A little empty. A lot of potential.</p><button className="button button-green" onClick={onClose}>Find your pizza <ArrowUpRight size={18}/></button></div> : <>
+      {ordered ? <div className="order-success"><span className="success-mark"><Check size={34}/></span><h3>That’s amore.</h3><p>Your demo order is complete. This preview doesn’t send a real order or take payment.</p><button className="button button-red" onClick={onClose}>Keep exploring <ArrowUpRight size={18}/></button></div> : items.length === 0 ? <div className="cart-empty"><ShoppingBag size={50} strokeWidth={1}/><p>A little empty. A lot of potential.</p><button className="button button-red" onClick={onClose}>Find your pizza <ArrowUpRight size={18}/></button></div> : <>
         <div className="cart-items">{items.map(item => <div className="cart-item" key={item.id}><div className={`cart-item-image ${item.className}`}><img src={item.image} alt="" width="90" height="90"/></div><div className="cart-item-info"><h3>{item.name}</h3><p>{formatPrice(item.price)}</p><div className="quantity"><button aria-label={`Remove one ${item.name}`} onClick={() => onUpdate(item.id, -1)}><Minus size={13}/></button><span>{item.quantity}</span><button aria-label={`Add one ${item.name}`} onClick={() => onUpdate(item.id, 1)}><Plus size={13}/></button></div></div><strong>{formatPrice(item.quantity * item.price)}</strong></div>)}</div>
         {checkout && <form id="checkout-form" className="checkout-form" onSubmit={submit}><label>Your name<input name="name" autoComplete="name" placeholder="A name for your order" required/></label><label>Phone number<input type="tel" name="phone" autoComplete="tel" placeholder="03XX XXXXXXX" pattern="[0-9+ ]{7,20}" required/></label><label>Delivery address<textarea name="address" autoComplete="street-address" placeholder="Where should the good stuff go?" minLength={10} required rows={3}/></label><p className="demo-note">Demo checkout · no payment or real delivery.</p></form>}
-        <div className="cart-summary"><div><span>Subtotal</span><strong>{formatPrice(total)}</strong></div><p>Delivery calculated when ordering. All pizzas are 12 inches.</p>{checkout ? <button type="submit" form="checkout-form" className="button button-green">Place demo order <ArrowRight size={18}/></button> : <button className="button button-green" onClick={() => setCheckout(true)}>Let’s make it happen <ArrowRight size={18}/></button>}{checkout && <button className="back-to-bag" onClick={() => setCheckout(false)}>Back to bag</button>}</div>
+        <div className="cart-summary"><div><span>Subtotal</span><strong>{formatPrice(total)}</strong></div><p>Delivery calculated when ordering. All pizzas are 12 inches.</p>{checkout ? <button type="submit" form="checkout-form" className="button button-red">Place demo order <ArrowRight size={18}/></button> : <button className="button button-red" onClick={() => setCheckout(true)}>Let’s make it happen <ArrowRight size={18}/></button>}{checkout && <button className="back-to-bag" onClick={() => setCheckout(false)}>Back to bag</button>}</div>
       </>}
     </motion.aside>
   </motion.div>;
@@ -96,8 +116,9 @@ export default function Home() {
   const [toast, setToast] = useState('');
   const [hydrated, setHydrated] = useState(false);
   const count = items.reduce((sum, item) => sum + item.quantity, 0);
-  useEffect(() => { try { const saved = JSON.parse(localStorage.getItem('forno-bag') || '[]'); if (Array.isArray(saved)) setItems(saved.filter(item => pizzas.some(pizza => pizza.id === item.id) && Number.isInteger(item.quantity) && item.quantity > 0).map(item => ({ ...pizzas.find(pizza => pizza.id === item.id), quantity: Math.min(item.quantity, 50) }))); } catch {} setHydrated(true); }, []);
-  useEffect(() => { if (hydrated) localStorage.setItem('forno-bag', JSON.stringify(items)); }, [items, hydrated]);
+  const closeCart = useCallback(() => setCartOpen(false), []);
+  useEffect(() => { try { const saved = JSON.parse(localStorage.getItem('pizza-teria-bag') || '[]'); if (Array.isArray(saved)) setItems(saved.filter(item => pizzas.some(pizza => pizza.id === item.id) && Number.isInteger(item.quantity) && item.quantity > 0).map(item => ({ ...pizzas.find(pizza => pizza.id === item.id), quantity: Math.min(item.quantity, 50) }))); } catch {} setHydrated(true); }, []);
+  useEffect(() => { if (hydrated) { try { localStorage.setItem('pizza-teria-bag', JSON.stringify(items)); } catch {} } }, [items, hydrated]);
   useEffect(() => { if (!toast) return; const timer = setTimeout(() => setToast(''), 2600); return () => clearTimeout(timer); }, [toast]);
   function add(pizza) { setItems(previous => { const found = previous.find(item => item.id === pizza.id); return found ? previous.map(item => item.id === pizza.id ? { ...item, quantity: Math.min(item.quantity + 1, 50) } : item) : [...previous, { ...pizza, quantity: 1 }]; }); setToast(`${pizza.name} added to your bag`); }
   function update(id, difference) { setItems(previous => previous.map(item => item.id === id ? { ...item, quantity: Math.min(item.quantity + difference, 50) } : item).filter(item => item.quantity > 0)); }
@@ -107,16 +128,16 @@ export default function Home() {
       <Hero/>
       <div className="values-strip"><span><Clock3 size={17}/>48-hour fermented dough</span><i>✳</i><span><Flame size={19}/>Wood-fired at 450°C</span><i>✳</i><span><Leaf size={17}/>The freshest good stuff</span><i>✳</i><span>Made by hand. Always.</span></div>
       <PizzaJourney/>
-      <section className="menu-section section-pad" id="menu" aria-labelledby="menu-heading"><Reveal><div className="section-heading"><div><span className="eyebrow">THE CIRCLE OF HAPPINESS</span><h2 id="menu-heading">Find your<br/><em>kind of good.</em></h2></div><p>A few favourites. A whole lot of character.<br/>Every pizza starts with slow dough and ends<br className="desktop-break"/> with something worth sharing.</p></div></Reveal>
+      <section className="menu-section section-pad" id="menu" aria-labelledby="menu-heading"><Reveal><div className="section-heading"><div><span className="eyebrow">THE PIZZA TERIA COLLECTION</span><h2 id="menu-heading">The house<br/><em>signatures.</em></h2></div><p>A few favourites. A whole lot of character.<br/>Every pizza starts with slow dough and ends<br className="desktop-break"/> with something worth sharing.</p></div></Reveal>
         <div className="menu-toolbar"><div className="menu-filters" role="group" aria-label="Filter pizzas">{['All pizzas', 'Classics', 'Signatures', 'Vegetarian'].map(option => <button key={option} className={option === filter ? 'active' : ''} aria-pressed={option === filter} onClick={() => setFilter(option)}>{option}</button>)}</div><span className="menu-size">12” OF PURE JOY <span>↗</span></span></div>
         <motion.div className="pizza-grid" layout>{pizzas.filter(pizza => filter === 'All pizzas' || pizza.type === filter).map((pizza, i) => <motion.article className="pizza-card" key={pizza.id} layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .4, delay: i * .06 }}><div className={`pizza-card-visual ${pizza.className}`}><span className="pizza-tag">{pizza.tag}</span><img src={pizza.image} alt={`${pizza.name}, 12-inch wood-fired pizza`} loading="lazy" width="600" height="600"/><button className="add-pizza" aria-label={`Add ${pizza.name} to bag`} onClick={() => add(pizza)}><Plus size={21}/></button></div><div className="pizza-card-title"><h3>{pizza.name}</h3><span>{formatPrice(pizza.price)}</span></div><p>{pizza.description}</p><span className="pizza-note">{pizza.note}</span></motion.article>)}</motion.div>
         <p className="menu-footnote"><Leaf size={14}/> Good ingredients, no shortcuts. Ask us about allergens before placing a real order.</p>
       </section>
-      <section className="story-section" id="our-story" aria-labelledby="story-heading"><div className="story-image"><img src="/images/forno-kitchen.webp" alt="A pizzaiolo hand-stretching fresh pizza dough in a warm wood-fired kitchen" loading="lazy" width="1536" height="1024"/><span className="image-caption">A LITTLE FLOUR. A LITTLE FIRE. A LOT OF HEART.</span></div><div className="story-content"><Reveal><span className="eyebrow">SOME THINGS ARE WORTH THE WAIT</span><h2 id="story-heading">Fast isn’t<br/>our <em>secret<br/>ingredient.</em></h2><p>We believe the best things in life take their time. So our dough rests for 48 hours. Our hands do the stretching. And our wood-fired oven does a little magic.</p><p>No overthinking. Just honest ingredients, a beautifully blistered crust, and that first bite you wish would last a little longer.</p><a className="text-link" href="#journey">Meet your pizza’s journey <ArrowUpRight size={17}/></a><span className="story-signature">Con amore, Forno.</span></Reveal></div></section>
-      <section className="manifesto section-pad"><Reveal><span className="eyebrow">OUR VERY SIMPLE PHILOSOPHY</span><h2>Life’s too short for<br/><span>ordinary</span> <em>pizza.</em></h2><div className="manifesto-details"><p>For the long lunches. The late nights.<br/>The “just one more slice” kind of people.</p><a className="button button-green" href="#menu">Make it a pizza night <ArrowUpRight size={18}/></a></div></Reveal><span className="manifesto-star" aria-hidden="true">✳</span></section>
-      <footer className="site-footer"><div className="footer-top"><Brand light/><p>A little Italian soul.<br/>Delivered to your happy place.</p><div><span className="eyebrow">COME HUNGRY. LEAVE HAPPY.</span><a href="#menu">Find your next favourite <ArrowUpRight size={17}/></a></div><a href="#" className="back-top" aria-label="Back to top"><ArrowDown size={19}/></a></div><div className="footer-wordmark" aria-hidden="true">good to the crust.</div><div className="footer-bottom"><span>© {new Date().getFullYear()} FORNO. Made with amore.</span><span>AN INDEPENDENT PIZZA CONCEPT</span><a href="#menu">Pizza is always a good idea. <span>↗</span></a></div></footer>
+      <section className="story-section" id="our-story" aria-labelledby="story-heading"><div className="story-image"><img src="/images/forno-kitchen.webp" alt="A pizzaiolo hand-stretching fresh pizza dough in a warm wood-fired kitchen" loading="lazy" width="1536" height="1024"/><span className="image-caption">A LITTLE FLOUR. A LITTLE FIRE. A LOT OF HEART.</span></div><div className="story-content"><Reveal><span className="eyebrow">SOME THINGS ARE WORTH THE WAIT</span><h2 id="story-heading">Fast isn’t<br/>our <em>secret<br/>ingredient.</em></h2><p>We believe the best things in life take their time. So our dough rests for 48 hours. Our hands do the stretching. And our wood-fired oven does a little magic.</p><p>No overthinking. Just honest ingredients, a beautifully blistered crust, and that first bite you wish would last a little longer.</p><a className="text-link" href="#journey">Meet your pizza’s journey <ArrowUpRight size={17}/></a><span className="story-signature">With fire. Pizza Teria.</span></Reveal></div></section>
+      <section className="manifesto section-pad"><Reveal><span className="eyebrow">OUR VERY SIMPLE PHILOSOPHY</span><h2>Life’s too short for<br/><span>ordinary</span> <em>pizza.</em></h2><div className="manifesto-details"><p>For the long lunches. The late nights.<br/>The “just one more slice” kind of people.</p><a className="button button-red" href="#menu">Make it a pizza night <ArrowUpRight size={18}/></a></div></Reveal><span className="manifesto-star" aria-hidden="true">✳</span></section>
+      <footer className="site-footer"><div className="footer-top"><Brand light/><p>A little Italian soul.<br/>Delivered to your happy place.</p><div><span className="eyebrow">COME HUNGRY. LEAVE HAPPY.</span><a href="#menu">Find your next favourite <ArrowUpRight size={17}/></a></div><a href="#" className="back-top" aria-label="Back to top"><ArrowDown size={19}/></a></div><div className="footer-wordmark" aria-hidden="true">pizza teria.</div><div className="footer-bottom"><span>© {new Date().getFullYear()} PIZZA TERIA. Crafted in fire.</span><span>AN INDEPENDENT PIZZA CONCEPT</span><a href="#menu">Pizza is always a good idea. <span>↗</span></a></div></footer>
     </main>
     <AnimatePresence>{toast && <motion.div role="status" className="toast" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}><Check size={17}/>{toast}<button onClick={() => { setCartOpen(true); setToast(''); }}>View bag <ChevronRight size={15}/></button></motion.div>}</AnimatePresence>
-    <AnimatePresence>{cartOpen && <Cart items={items} onClose={() => setCartOpen(false)} onUpdate={update} onClear={() => setItems([])}/>}</AnimatePresence>
+    <AnimatePresence>{cartOpen && <Cart items={items} onClose={closeCart} onUpdate={update} onClear={() => setItems([])}/>}</AnimatePresence>
   </>;
 }

@@ -17,6 +17,11 @@ try {
   await page.waitForTimeout(1500);
   await page.screenshot({ path: 'artifacts/desktop-home.png' });
   assert.equal(await page.locator('h1').count(), 1);
+  assert.match(await page.title(), /Pizza Teria/);
+  assert.equal(await page.getByRole('link', { name: 'Pizza Teria home', exact: true }).count(), 2);
+  assert.equal(await page.locator('.hero-pizza').getAttribute('src'), '/images/pizza-signature.webp');
+  assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(12, 12, 12)', 'The theme should be dark charcoal');
+  assert.equal((await page.locator('body').innerText()).includes('FORNO'), false, 'Visible brand should be Pizza Teria throughout');
   await page.getByRole('button', { name: 'Signatures', exact: true }).click();
   assert.equal(await page.locator('.pizza-card').count(), 2);
   await page.getByRole('button', { name: 'Add Hot Honey Diavola to bag', exact: true }).click();
@@ -24,8 +29,9 @@ try {
   await page.getByRole('dialog').waitFor();
   await page.getByRole('button', { name: 'Add one Hot Honey Diavola' }).click();
   assert.equal(await page.locator('.quantity span').textContent(), '2');
+  assert.equal(await page.getByRole('button', { name: 'Add one Hot Honey Diavola' }).evaluate(el => el === document.activeElement), true, 'Quantity control should retain keyboard focus');
   await page.getByRole('button', { name: 'Let’s make it happen' }).click();
-  await page.getByLabel('Your name').fill('Forno Preview');
+  await page.getByLabel('Your name').fill('Pizza Teria Preview');
   await page.getByLabel('Phone number').fill('03001234567');
   await page.getByLabel('Delivery address').fill('123 Garden Street, Lahore');
   await page.getByRole('button', { name: 'Place demo order' }).click();
@@ -33,6 +39,11 @@ try {
   await page.getByRole('button', { name: 'Keep exploring' }).click();
   await page.getByRole('button', { name: 'All pizzas', exact: true }).click();
   assert.equal(await page.locator('.pizza-card').count(), 4);
+  await page.waitForTimeout(650);
+  await page.locator('.menu-section').screenshot({ path: 'artifacts/desktop-menu.png', timeout: 60000 });
+  await page.locator('.story-section').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(850);
+  await page.locator('.story-section').screenshot({ path: 'artifacts/desktop-story.png', timeout: 60000 });
   const story = await page.locator('.journey').evaluate(el => ({ top: el.offsetTop, height: el.offsetHeight }));
   await page.addStyleTag({ content: 'html{scroll-behavior:auto!important}' });
   for (const [name, progress] of [['dough', .01], ['ingredients', .22], ['fire', .4], ['box', .72], ['delivery', .94], ['reverse', .22]]) {
@@ -59,5 +70,5 @@ try {
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   await writeFile('artifacts/browser-errors.json', JSON.stringify(errors, null, 2));
   assert.deepEqual(errors.filter(error => !error.includes('Download the React DevTools')), [], 'Browser must not report runtime or asset errors');
-  console.log('PASS: desktop, mobile, menu filters, bag quantity, demo checkout, all 3D stages, reverse scroll, asset loading, no browser errors.');
+  console.log('PASS: Pizza Teria branding, dark theme, desktop, mobile, menu filters, bag quantity and focus, demo checkout, all 3D stages, reverse scroll, asset loading, no browser errors.');
 } finally { await browser.close(); }

@@ -5,8 +5,9 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
 
-const GREEN = "#173b2c";
-const CREAM = "#efe9d8";
+const RED = "#c32e2a";
+const BLACK = "#111111";
+const CREAM = "#f4eee5";
 const TAU = Math.PI * 2;
 const clamp = (n, a = 0, b = 1) => Math.min(b, Math.max(a, n));
 const smooth = (p, from, to) => {
@@ -134,55 +135,83 @@ function makeCheeseTexture() {
   });
 }
 
-function makeBrandTexture(side = false) {
+function makeBrandTexture(side = false, interior = false) {
   return canvasTexture(1024, side ? 128 : 1024, (ctx, width, height) => {
-    const random = randomGenerator(17);
-    ctx.fillStyle = CREAM;
-    ctx.fillRect(0, 0, width, height);
-    for (let i = 0; i < 14000; i++) {
-      ctx.fillStyle = `rgba(103,85,56,${random() * 0.05})`;
-      ctx.fillRect(random() * width, random() * height, random() * 2, 1);
+    if (interior) {
+      ctx.fillStyle = CREAM;
+      ctx.fillRect(0, 0, width, height);
     }
-    ctx.fillStyle = GREEN;
-    ctx.strokeStyle = GREEN;
+    ctx.fillStyle = "#e5392f";
+    ctx.strokeStyle = "#e5392f";
     ctx.textAlign = "center";
     if (side) {
-      ctx.fillRect(0, 0, width, 5);
-      ctx.fillRect(0, height - 5, width, 5);
-      ctx.font = "600 39px Georgia, serif";
-      ctx.fillText("FORNO  ·  FIRED WITH FEELING", width / 2, 78);
+      ctx.fillRect(0, 8, width, 2);
+      ctx.fillRect(0, height - 8, width, 2);
+      ctx.font = "600 32px Georgia, serif";
+      ctx.fillText("PIZZA TERIA   /   CRAFTED. FIRED. DELIVERED.", width / 2, 77);
       return;
     }
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(73, 73, 878, 878);
+    ctx.strokeRect(86, 86, 852, 852);
+    // Fine line orbital mark, printed as red foil on the matte black lid.
     ctx.lineWidth = 2;
-    ctx.strokeRect(54, 54, 916, 916);
-    ctx.strokeRect(66, 66, 892, 892);
-    ctx.lineWidth = 8;
+    for (let i = 0; i < 4; i++) {
+      ctx.save();
+      ctx.translate(512, 270);
+      ctx.rotate(i * Math.PI / 4);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 68, 37, 0, 0, TAU);
+      ctx.stroke();
+      ctx.restore();
+    }
     ctx.beginPath();
-    ctx.arc(512, 313, 65, Math.PI, TAU);
-    ctx.lineTo(577, 340);
-    ctx.lineTo(447, 340);
-    ctx.closePath();
+    ctx.arc(512, 270, 12, 0, TAU);
     ctx.stroke();
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.arc(512, 316, 31, Math.PI, TAU);
-    ctx.lineTo(543, 340);
-    ctx.moveTo(481, 340);
-    ctx.lineTo(481, 316);
-    ctx.stroke();
-    ctx.font = "bold 172px Georgia, serif";
-    ctx.fillText("FORNO", 512, 542);
-    ctx.font = "22px Arial, sans-serif";
-    ctx.fillText("F I R E D   W I T H   F E E L I N G", 512, 607);
+    ctx.font = "bold 139px Georgia, serif";
+    ctx.fillText("PIZZA", 512, 498);
+    ctx.fillText("TERIA", 512, 633);
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(360, 659);
-    ctx.lineTo(664, 659);
+    ctx.moveTo(342, 695);
+    ctx.lineTo(682, 695);
     ctx.stroke();
-    ctx.font = "italic 30px Georgia, serif";
-    ctx.fillText("A little fire. A lot of soul.", 512, 718);
-    ctx.font = "17px Arial, sans-serif";
-    ctx.fillText("HANDCRAFTED   ·   GOOD THINGS TAKE FIRE", 512, 885);
+    ctx.font = "18px Arial, sans-serif";
+    ctx.fillText(interior ? "FRESH FROM THE FIRE. ALL YOURS." : "THE ART OF A GOOD PIZZA", 512, 763);
+    ctx.font = "italic 23px Georgia, serif";
+    ctx.fillText("Made with fire. Served with soul.", 512, 867);
+  });
+}
+
+function makeWispTexture() {
+  return canvasTexture(64, 256, (ctx) => {
+    ctx.filter = "blur(7px)";
+    const gradient = ctx.createLinearGradient(0, 0, 0, 256);
+    gradient.addColorStop(0, "rgba(255,255,255,0)");
+    gradient.addColorStop(0.35, "rgba(255,255,255,.45)");
+    gradient.addColorStop(0.75, "rgba(255,255,255,.8)");
+    gradient.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.strokeStyle = gradient;
+    ctx.lineWidth = 12;
+    ctx.beginPath();
+    ctx.moveTo(28, 250);
+    ctx.bezierCurveTo(5, 180, 59, 132, 30, 66);
+    ctx.bezierCurveTo(17, 35, 39, 15, 34, 0);
+    ctx.stroke();
+  });
+}
+
+function makeEmberGlowTexture() {
+  return canvasTexture(128, 128, (ctx, width) => {
+    const glow = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+    glow.addColorStop(0, "rgba(255,90,13,0)");
+    glow.addColorStop(0.59, "rgba(255,90,13,0)");
+    glow.addColorStop(0.72, "rgba(255,111,26,.3)");
+    glow.addColorStop(0.8, "rgba(255,54,5,.48)");
+    glow.addColorStop(0.9, "rgba(166,20,2,.12)");
+    glow.addColorStop(1, "rgba(255,50,0,0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, width, width);
   });
 }
 
@@ -261,8 +290,8 @@ function makeCrustGeometry() {
 }
 
 function makeSurfaceGeometry() {
-  const rings = 18;
-  const sectors = 128;
+  const rings = 30;
+  const sectors = 144;
   const positions = [];
   const uvs = [];
   const indices = [];
@@ -272,7 +301,7 @@ function makeSurfaceGeometry() {
       const r = (ring / rings) * (1.9 + Math.sin(a * 5) * 0.023);
       const x = Math.cos(a) * r;
       const z = Math.sin(a) * r;
-      positions.push(x, 0.115 + Math.sin(x * 8 + z * 3) * 0.012 + Math.cos(z * 11 - x * 4) * 0.009, z);
+      positions.push(x, 0.115 + Math.sin(x * 8 + z * 3) * 0.017 + Math.cos(z * 11 - x * 4) * 0.012 + Math.sin(x * 17 - z * 21) * 0.004, z);
       uvs.push(x / 3.8 + 0.5, z / 3.8 + 0.5);
       if (ring < rings && i < sectors) {
         const index = ring * (sectors + 1) + i;
@@ -353,9 +382,12 @@ function Pizza({ progressRef, hero, reducedMotion }) {
   const group = useRef();
   const crustMaterial = useRef();
   const cheeseMaterial = useRef();
+  const ingredients = useRef();
+  const ingredientMaterials = useRef([]);
+  const photoReady = useRef(false);
   const falling = useRef([]);
   const invalidate = useThree((state) => state.invalidate);
-  const textures = useMemo(() => ({ cooked: makeDoughTexture(), raw: makeDoughTexture(true), cheese: makeCheeseTexture(), leaf: makeLeafTexture() }), []);
+  const textures = useMemo(() => ({ cooked: makeDoughTexture(), raw: makeDoughTexture(true), cheese: makeCheeseTexture(), finished: makeCheeseTexture(), leaf: makeLeafTexture() }), []);
   const crustGeometry = useMemo(makeCrustGeometry, []);
   const surfaceGeometry = useMemo(makeSurfaceGeometry, []);
   const leafGeometry = useMemo(makeLeafGeometry, []);
@@ -365,8 +397,18 @@ function Pizza({ progressRef, hero, reducedMotion }) {
   const basil = useMemo(() => [[-0.6, 0.19, -0.94], [0.98, 0.19, 0.25], [-0.73, 0.19, 0.61], [0.25, 0.19, 0.36]], []);
 
   useEffect(() => {
-    // A generated food photograph supplies optional crust detail. Polar UVs wrap
-    // its golden, blistered edge around actual toroidal dough geometry.
+    ingredientMaterials.current = [];
+    ingredients.current.traverse((object) => {
+      if (!object.material) return;
+      object.material.transparent = true;
+      ingredientMaterials.current.push(object.material);
+    });
+  }, []);
+
+  useEffect(() => {
+    // Both maps sample the same generated photograph in matching coordinates:
+    // the actual raised crust unwraps its perimeter, while the undulating top
+    // receives its glossy sauce, melted cheese, oil and charred ingredient detail.
     let active = true;
     const reference = new Image();
     reference.onload = () => {
@@ -384,12 +426,19 @@ function Pizza({ progressRef, hero, reducedMotion }) {
       const centerY = source.height / 2;
       for (let y = 0; y < output.height; y++) {
         const tubeAngle = (1 - y / output.height) * TAU;
-        const radius = ((2.005 + Math.cos(tubeAngle) * 0.225) / 2.25) * source.width * 0.465;
+        const radius = ((2.005 + Math.cos(tubeAngle) * 0.225) / 2.25) * source.width * 0.475;
         for (let x = 0; x < output.width; x++) {
           const angle = (x / output.width) * TAU;
-          const sx = clamp(Math.round(centerX + Math.cos(angle) * radius), 0, source.width - 1);
-          const sy = clamp(Math.round(centerY - Math.sin(angle) * radius), 0, source.height - 1);
-          const from = (sy * source.width + sx) * 4;
+          let sampleRadius = radius;
+          let sx = clamp(Math.round(centerX + Math.cos(angle) * sampleRadius), 0, source.width - 1);
+          let sy = clamp(Math.round(centerY - Math.sin(angle) * sampleRadius), 0, source.height - 1);
+          let from = (sy * source.width + sx) * 4;
+          while (pixels[from + 3] < 220 && sampleRadius > radius * 0.9) {
+            sampleRadius *= 0.99;
+            sx = clamp(Math.round(centerX + Math.cos(angle) * sampleRadius), 0, source.width - 1);
+            sy = clamp(Math.round(centerY - Math.sin(angle) * sampleRadius), 0, source.height - 1);
+            from = (sy * source.width + sx) * 4;
+          }
           const to = (y * output.width + x) * 4;
           unwrapped.data[to] = pixels[from];
           unwrapped.data[to + 1] = pixels[from + 1];
@@ -399,10 +448,19 @@ function Pizza({ progressRef, hero, reducedMotion }) {
       }
       target.putImageData(unwrapped, 0, 0);
       textures.cooked.needsUpdate = true;
+      const top = textures.finished.image;
+      const topContext = top.getContext("2d");
+      const crop = source.width * 0.475 * (1.9 / 2.25);
+      topContext.drawImage(source, centerX - crop, centerY - crop, crop * 2, crop * 2, 0, 0, top.width, top.height);
+      textures.finished.needsUpdate = true;
+      photoReady.current = true;
       invalidate();
     };
-    reference.src = "/images/pizza-hero.webp";
-    return () => { active = false; reference.onload = null; };
+    reference.onerror = () => {
+      if (active && reference.src.endsWith("pizza-signature.webp")) reference.src = "/images/pizza-hero.webp";
+    };
+    reference.src = "/images/pizza-signature.webp";
+    return () => { active = false; reference.onload = null; reference.onerror = null; };
   }, [textures, invalidate]);
 
   useEffect(() => () => {
@@ -416,7 +474,11 @@ function Pizza({ progressRef, hero, reducedMotion }) {
     const p = hero ? 0.48 : progressRef.current;
     const sauce = hero ? 1 : smooth(p, 0.035, 0.16);
     const baked = hero ? 1 : smooth(p, 0.25, 0.4);
+    const finish = photoReady.current ? (hero ? 1 : smooth(p, 0.27, 0.39)) : 0;
     if (cheeseMaterial.current) cheeseMaterial.current.opacity = sauce;
+    const topShader = cheeseMaterial.current?.userData.shader;
+    if (topShader) topShader.uniforms.uFinish.value = finish;
+    ingredientMaterials.current.forEach((material) => { material.opacity = 1 - finish; material.depthWrite = finish < 0.02; });
     const shader = crustMaterial.current?.userData.shader;
     if (shader) shader.uniforms.uBake.value = baked;
     if (group.current) {
@@ -429,7 +491,7 @@ function Pizza({ progressRef, hero, reducedMotion }) {
       const order = isBasil ? index - tomatoes.length : index;
       const start = isBasil ? 0.18 + order * 0.014 : 0.07 + order * 0.012;
       const drop = hero ? 1 : smooth(p, start, start + 0.12);
-      item.visible = drop > 0.01;
+      item.visible = drop > 0.01 && finish < 0.995;
       item.position.y = (1 - drop) * (2.8 + (index % 3) * 0.45);
       item.rotation.y = (1 - drop) * (index % 2 ? -1.5 : 1.2);
       item.scale.setScalar(0.84 + drop * 0.16);
@@ -443,7 +505,7 @@ function Pizza({ progressRef, hero, reducedMotion }) {
         <meshStandardMaterial color="#d8ab70" roughness={0.86} map={textures.raw} />
       </mesh>
       <mesh geometry={crustGeometry} castShadow receiveShadow>
-        <meshStandardMaterial ref={crustMaterial} map={textures.cooked} bumpMap={textures.cooked} bumpScale={0.022} roughness={0.72} onBeforeCompile={(shader) => {
+        <meshPhysicalMaterial ref={crustMaterial} map={textures.cooked} bumpMap={textures.cooked} bumpScale={0.025} roughness={0.63} clearcoat={0.08} clearcoatRoughness={0.6} onBeforeCompile={(shader) => {
           shader.uniforms.uRawMap = { value: textures.raw };
           shader.uniforms.uBake = { value: hero ? 1 : smooth(progressRef.current, 0.25, 0.4) };
           shader.fragmentShader = "uniform sampler2D uRawMap;\nuniform float uBake;\n" + shader.fragmentShader.replace("#include <map_fragment>", "#ifdef USE_MAP\nvec4 rawColor = texture2D(uRawMap, vMapUv);\nvec4 cookedColor = texture2D(map, vMapUv);\ndiffuseColor *= mix(rawColor, cookedColor, uBake);\n#endif");
@@ -451,10 +513,17 @@ function Pizza({ progressRef, hero, reducedMotion }) {
         }} />
       </mesh>
       <mesh geometry={surfaceGeometry} receiveShadow>
-        <meshStandardMaterial ref={cheeseMaterial} map={textures.cheese} roughness={0.46} transparent opacity={hero ? 1 : 0} side={THREE.DoubleSide} polygonOffset polygonOffsetFactor={-1} />
+        <meshPhysicalMaterial ref={cheeseMaterial} map={textures.cheese} bumpMap={textures.finished} bumpScale={0.022} roughness={0.47} clearcoat={0.21} clearcoatRoughness={0.28} transparent opacity={hero ? 1 : 0} side={THREE.DoubleSide} polygonOffset polygonOffsetFactor={-1} onBeforeCompile={(shader) => {
+          shader.uniforms.uFinishedMap = { value: textures.finished };
+          shader.uniforms.uFinish = { value: photoReady.current ? (hero ? 1 : smooth(progressRef.current, 0.27, 0.39)) : 0 };
+          shader.fragmentShader = "uniform sampler2D uFinishedMap;\nuniform float uFinish;\n" + shader.fragmentShader.replace("#include <map_fragment>", "#ifdef USE_MAP\nvec4 ingredientColor = texture2D(map, vMapUv);\nvec4 finishedColor = texture2D(uFinishedMap, vMapUv);\ndiffuseColor *= mix(ingredientColor, finishedColor, uFinish);\n#endif");
+          if (cheeseMaterial.current) cheeseMaterial.current.userData.shader = shader;
+        }} />
       </mesh>
+      <group ref={ingredients}>
       {tomatoes.map((position, index) => <group key={`tomato-${index}`} ref={(element) => { falling.current[index] = element; }}><Tomato position={position} rotation={index * 2.41} /></group>)}
       {basil.map((position, index) => <group key={`basil-${index}`} ref={(element) => { falling.current[tomatoes.length + index] = element; }}><Basil position={position} rotation={index * 2.1} geometry={leafGeometry} texture={textures.leaf} /></group>)}
+      </group>
     </group>
   );
 }
@@ -464,7 +533,8 @@ function PizzaBox({ progressRef }) {
   const lid = useRef();
   const brandTexture = useMemo(() => makeBrandTexture(), []);
   const sideTexture = useMemo(() => makeBrandTexture(true), []);
-  useEffect(() => () => { brandTexture.dispose(); sideTexture.dispose(); }, [brandTexture, sideTexture]);
+  const innerTexture = useMemo(() => makeBrandTexture(false, true), []);
+  useEffect(() => () => { brandTexture.dispose(); sideTexture.dispose(); innerTexture.dispose(); }, [brandTexture, sideTexture, innerTexture]);
   useFrame(() => {
     const p = progressRef.current;
     const appear = smooth(p, 0.465, 0.57);
@@ -475,16 +545,17 @@ function PizzaBox({ progressRef }) {
   });
   return (
     <group ref={group} visible={false}>
-      <RoundedBox args={[4.94, 0.095, 4.94]} radius={0.025} smoothness={2} position={[0, -0.3, 0]} receiveShadow castShadow><meshStandardMaterial color={CREAM} roughness={0.88} /></RoundedBox>
-      {[-1, 1].map((side) => <mesh key={side} position={[side * 2.455, -0.015, 0]} castShadow receiveShadow><boxGeometry args={[0.075, 0.58, 4.94]} /><meshStandardMaterial color={CREAM} roughness={0.9} /></mesh>)}
-      {[-1, 1].map((side) => <mesh key={`end-${side}`} position={[0, -0.015, side * 2.455]} castShadow receiveShadow><boxGeometry args={[4.94, 0.58, 0.075]} /><meshStandardMaterial color={CREAM} roughness={0.9} /></mesh>)}
-      <mesh position={[0, 0, 2.496]}><planeGeometry args={[4.83, 0.39]} /><meshStandardMaterial map={sideTexture} roughness={0.88} /></mesh>
-      <mesh position={[2.496, 0, 0]} rotation={[0, Math.PI / 2, 0]}><planeGeometry args={[4.83, 0.39]} /><meshStandardMaterial map={sideTexture} roughness={0.88} /></mesh>
+      <RoundedBox args={[4.94, 0.095, 4.94]} radius={0.025} smoothness={2} position={[0, -0.3, 0]} receiveShadow castShadow><meshStandardMaterial color={BLACK} roughness={0.82} /></RoundedBox>
+      <mesh position={[0, -0.25, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={[4.85, 4.85]} /><meshStandardMaterial color={CREAM} roughness={0.95} /></mesh>
+      {[-1, 1].map((side) => <group key={side}><mesh position={[side * 2.455, -0.015, 0]} castShadow receiveShadow><boxGeometry args={[0.075, 0.58, 4.94]} /><meshStandardMaterial color={BLACK} roughness={0.82} /></mesh><mesh position={[side * 2.414, -0.015, 0]} rotation={[0, -side * Math.PI / 2, 0]}><planeGeometry args={[4.82, 0.55]} /><meshStandardMaterial color={CREAM} roughness={0.94} /></mesh></group>)}
+      {[-1, 1].map((side) => <group key={`end-${side}`}><mesh position={[0, -0.015, side * 2.455]} castShadow receiveShadow><boxGeometry args={[4.94, 0.58, 0.075]} /><meshStandardMaterial color={BLACK} roughness={0.82} /></mesh><mesh position={[0, -0.015, side * 2.414]} rotation={[0, side === 1 ? Math.PI : 0, 0]}><planeGeometry args={[4.82, 0.55]} /><meshStandardMaterial color="#ae2925" roughness={0.9} /></mesh></group>)}
+      <mesh position={[0, 0, 2.496]}><planeGeometry args={[4.83, 0.39]} /><meshPhysicalMaterial map={sideTexture} transparent metalness={0.48} roughness={0.35} /></mesh>
+      <mesh position={[2.496, 0, 0]} rotation={[0, Math.PI / 2, 0]}><planeGeometry args={[4.83, 0.39]} /><meshPhysicalMaterial map={sideTexture} transparent metalness={0.48} roughness={0.35} /></mesh>
       <group ref={lid} position={[0, 0.305, -2.485]} rotation={[-2.02, 0, 0]}>
-        <RoundedBox args={[5.035, 0.075, 5.035]} radius={0.025} smoothness={2} position={[0, 0, 2.485]} castShadow receiveShadow><meshStandardMaterial color={CREAM} roughness={0.86} /></RoundedBox>
-        <mesh position={[0, 0.039, 2.485]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[4.97, 4.97]} /><meshStandardMaterial map={brandTexture} roughness={0.87} /></mesh>
-        <mesh position={[0, -0.039, 2.485]} rotation={[Math.PI / 2, 0, 0]}><planeGeometry args={[3.7, 3.7]} /><meshStandardMaterial map={brandTexture} roughness={0.92} /></mesh>
-        <mesh position={[0, -0.1, 4.975]}><boxGeometry args={[4.88, 0.18, 0.045]} /><meshStandardMaterial color="#e5ddc8" roughness={0.9} /></mesh>
+        <RoundedBox args={[5.035, 0.075, 5.035]} radius={0.025} smoothness={2} position={[0, 0, 2.485]} castShadow receiveShadow><meshStandardMaterial color={BLACK} roughness={0.8} /></RoundedBox>
+        <mesh position={[0, 0.039, 2.485]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[4.97, 4.97]} /><meshPhysicalMaterial map={brandTexture} transparent metalness={0.55} roughness={0.31} clearcoat={0.15} /></mesh>
+        <mesh position={[0, -0.039, 2.485]} rotation={[Math.PI / 2, 0, 0]}><planeGeometry args={[4.97, 4.97]} /><meshStandardMaterial map={innerTexture} roughness={0.94} /></mesh>
+        <mesh position={[0, -0.1, 4.975]}><boxGeometry args={[4.88, 0.18, 0.045]} /><meshStandardMaterial color="#252323" roughness={0.9} /></mesh>
       </group>
     </group>
   );
@@ -492,50 +563,46 @@ function PizzaBox({ progressRef }) {
 
 function Fire({ progressRef, reducedMotion }) {
   const group = useRef();
-  const flames = useRef([]);
+  const wisps = useRef([]);
   const embers = useRef([]);
   const light = useRef();
-  const geometry = useMemo(() => {
-    const shape = new THREE.SphereGeometry(1, 12, 12);
-    const vertices = shape.attributes.position;
-    for (let i = 0; i < vertices.count; i++) {
-      const y = vertices.getY(i);
-      const taper = 0.6 + (1 - y) * 0.3;
-      vertices.setXYZ(i, vertices.getX(i) * taper + y * y * 0.12, y, vertices.getZ(i) * taper);
-    }
-    shape.computeVertexNormals();
-    return shape;
-  }, []);
-  useEffect(() => () => geometry.dispose(), [geometry]);
-  useFrame(({ clock }) => {
+  const glow = useRef();
+  const wispTexture = useMemo(makeWispTexture, []);
+  const glowTexture = useMemo(makeEmberGlowTexture, []);
+  useEffect(() => () => { wispTexture.dispose(); glowTexture.dispose(); }, [wispTexture, glowTexture]);
+  useFrame(({ clock, camera }) => {
     const p = progressRef.current;
     const intensity = smooth(p, 0.26, 0.32) * (1 - smooth(p, 0.45, 0.54));
     group.current.visible = intensity > 0.005;
-    light.current.intensity = intensity * 9;
+    light.current.intensity = intensity * 7.5;
+    glow.current.material.opacity = intensity * 0.67;
     const time = reducedMotion ? 0 : clock.elapsedTime;
-    flames.current.forEach((mesh, index) => {
+    wisps.current.forEach((mesh, index) => {
       if (!mesh) return;
-      const flicker = 0.8 + Math.sin(time * 7 + index * 2.4) * 0.2;
-      mesh.scale.set(0.07 + (index % 3) * 0.015, (0.24 + (index % 4) * 0.07) * flicker * intensity, 0.07);
-      mesh.material.opacity = intensity * (0.45 + Math.sin(index) * 0.12);
+      const rise = (time * 0.13 + index * 0.173) % 1;
+      const angle = index * 2.399;
+      const steam = index > 4;
+      const radius = steam ? 0.9 + (index % 3) * 0.35 : 2.08;
+      mesh.position.set(Math.cos(angle) * radius + Math.sin(time + index) * 0.08, (steam ? 0.5 : -0.2) + rise * (steam ? 1.3 : 0.65), Math.sin(angle) * radius);
+      mesh.scale.set(steam ? 0.4 + rise * 0.3 : 0.2, steam ? 1.1 + rise * 0.4 : 0.65, 1);
+      mesh.quaternion.copy(camera.quaternion);
+      mesh.material.opacity = intensity * Math.sin(rise * Math.PI) * (steam ? 0.14 : 0.3);
     });
     embers.current.forEach((mesh, index) => {
       if (!mesh) return;
-      const rise = ((time * 0.25 + index * 0.13) % 1);
-      mesh.position.y = -0.3 + rise * 1.5;
-      mesh.material.opacity = intensity * (1 - rise) * 0.8;
+      const rise = ((time * 0.24 + index * 0.13) % 1);
+      mesh.position.y = -0.2 + rise * 0.9;
+      mesh.material.opacity = intensity * Math.sin(rise * Math.PI) * 0.85;
     });
   });
   return (
     <group ref={group} visible={false}>
-      <pointLight ref={light} position={[0, -0.45, 0]} color="#ff8732" intensity={0} distance={7} decay={2} />
-      {Array.from({ length: 25 }, (_, index) => {
-        const angle = (index / 25) * TAU;
-        return <mesh key={`flame-${index}`} ref={(element) => { flames.current[index] = element; }} geometry={geometry} position={[Math.cos(angle) * 1.83, -0.2, Math.sin(angle) * 1.83]} rotation={[0.15 * Math.cos(angle), 0, -0.16 * Math.sin(angle)]}><meshBasicMaterial color={index % 2 ? "#ffb24b" : "#ec6b21"} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} /></mesh>;
-      })}
-      {Array.from({ length: 16 }, (_, index) => {
+      <pointLight ref={light} position={[0, -0.4, 0]} color="#ff6925" intensity={0} distance={7} decay={2} />
+      <mesh ref={glow} position={[0, -0.22, 0]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[5.9, 5.9]} /><meshBasicMaterial map={glowTexture} transparent opacity={0} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} /></mesh>
+      {Array.from({ length: 9 }, (_, index) => <mesh key={`wisp-${index}`} ref={(element) => { wisps.current[index] = element; }}><planeGeometry args={[1, 1]} /><meshBasicMaterial map={wispTexture} color={index > 4 ? "#f0d9c3" : "#ff9d45"} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} /></mesh>)}
+      {Array.from({ length: 24 }, (_, index) => {
         const angle = index * 2.399;
-        return <mesh key={`ember-${index}`} ref={(element) => { embers.current[index] = element; }} position={[Math.cos(angle) * (1.8 + (index % 4) * 0.1), 0, Math.sin(angle) * (1.8 + (index % 3) * 0.1)]}><sphereGeometry args={[0.012 + (index % 3) * 0.004, 6, 6]} /><meshBasicMaterial color="#ffab42" transparent opacity={0} toneMapped={false} depthWrite={false} /></mesh>;
+        return <mesh key={`ember-${index}`} ref={(element) => { embers.current[index] = element; }} position={[Math.cos(angle) * (2.02 + (index % 4) * 0.07), 0, Math.sin(angle) * (2.02 + (index % 3) * 0.09)]}><sphereGeometry args={[0.008 + (index % 3) * 0.003, 6, 6]} /><meshBasicMaterial color={index % 2 ? "#ffad51" : "#ed5423"} transparent opacity={0} toneMapped={false} depthWrite={false} /></mesh>;
       })}
     </group>
   );
@@ -545,13 +612,13 @@ function Wheel({ position, wheelRef }) {
   return (
     <group position={position}>
       <group ref={wheelRef}>
-        <mesh castShadow><torusGeometry args={[0.345, 0.105, 12, 40]} /><meshStandardMaterial color="#292c27" roughness={0.92} /></mesh>
+        <mesh castShadow><torusGeometry args={[0.345, 0.105, 12, 40]} /><meshStandardMaterial color="#1d1d1d" roughness={0.92} /></mesh>
         <mesh rotation={[Math.PI / 2, 0, 0]} castShadow><cylinderGeometry args={[0.288, 0.288, 0.18, 32]} /><meshStandardMaterial color="#c9c5b7" metalness={0.75} roughness={0.3} /></mesh>
         {[-1, 1].map((side) => <mesh key={side} position={[0, 0, side * 0.105]}><torusGeometry args={[0.22, 0.027, 6, 30]} /><meshStandardMaterial color={CREAM} metalness={0.25} roughness={0.5} /></mesh>)}
         {Array.from({ length: 8 }, (_, index) => <mesh key={index} rotation={[0, 0, index * Math.PI / 4]} position={[0, 0, 0.115]}><boxGeometry args={[0.43, 0.018, 0.018]} /><meshStandardMaterial color="#8b9184" metalness={0.8} roughness={0.32} /></mesh>)}
-        <mesh position={[0, 0, 0.125]}><sphereGeometry args={[0.08, 16, 8]} /><meshStandardMaterial color={GREEN} metalness={0.4} roughness={0.3} /></mesh>
+        <mesh position={[0, 0, 0.125]}><sphereGeometry args={[0.08, 16, 8]} /><meshStandardMaterial color={RED} metalness={0.4} roughness={0.3} /></mesh>
       </group>
-      <mesh position={[0, 0.025, 0]} castShadow><torusGeometry args={[0.44, 0.075, 8, 30, Math.PI]} /><meshStandardMaterial color={GREEN} metalness={0.18} roughness={0.3} /></mesh>
+      <mesh position={[0, 0.025, 0]} castShadow><torusGeometry args={[0.44, 0.075, 8, 30, Math.PI]} /><meshStandardMaterial color={RED} metalness={0.18} roughness={0.3} /></mesh>
     </group>
   );
 }
@@ -571,37 +638,58 @@ function Scooter({ progressRef }) {
     <group ref={group} visible={false}>
       <Wheel position={[-1.1, -0.7, 0]} wheelRef={(element) => { wheels.current[0] = element; }} />
       <Wheel position={[1.12, -0.7, 0]} wheelRef={(element) => { wheels.current[1] = element; }} />
-      <mesh position={[-0.76, -0.08, 0]} scale={[0.87, 0.47, 0.37]} castShadow><sphereGeometry args={[1, 32, 24]} /><meshStandardMaterial color={GREEN} metalness={0.18} roughness={0.3} /></mesh>
-      <mesh position={[-0.78, -0.12, 0.32]} scale={[0.54, 0.29, 0.045]} castShadow><sphereGeometry args={[1, 24, 16]} /><meshStandardMaterial color="#214a36" metalness={0.16} roughness={0.32} /></mesh>
+      <mesh position={[-0.76, -0.08, 0]} scale={[0.87, 0.47, 0.37]} castShadow><sphereGeometry args={[1, 32, 24]} /><meshStandardMaterial color={RED} metalness={0.18} roughness={0.3} /></mesh>
+      <mesh position={[-0.78, -0.12, 0.32]} scale={[0.54, 0.29, 0.045]} castShadow><sphereGeometry args={[1, 24, 16]} /><meshStandardMaterial color="#8d1f20" metalness={0.16} roughness={0.32} /></mesh>
       <RoundedBox args={[1.6, 0.13, 0.67]} radius={0.06} smoothness={3} position={[0.17, -0.38, 0]} castShadow><meshStandardMaterial color={CREAM} metalness={0.12} roughness={0.45} /></RoundedBox>
       <RoundedBox args={[0.75, 0.035, 0.5]} radius={0.015} smoothness={2} position={[0.28, -0.296, 0]}><meshStandardMaterial color="#a49f8c" roughness={0.88} /></RoundedBox>
-      <mesh position={[0.87, 0.05, 0]} rotation={[0, 0, -0.17]} scale={[0.21, 0.75, 0.39]} castShadow><sphereGeometry args={[1, 28, 20]} /><meshStandardMaterial color={GREEN} metalness={0.16} roughness={0.29} /></mesh>
+      <mesh position={[0.87, 0.05, 0]} rotation={[0, 0, -0.17]} scale={[0.21, 0.75, 0.39]} castShadow><sphereGeometry args={[1, 28, 20]} /><meshStandardMaterial color={RED} metalness={0.16} roughness={0.29} /></mesh>
       <mesh position={[1.04, -0.16, 0]} rotation={[0, 0, 0.1]} castShadow><cylinderGeometry args={[0.055, 0.055, 1, 12]} /><meshStandardMaterial color="#b7b6aa" metalness={0.8} roughness={0.3} /></mesh>
       <mesh position={[0.92, 0.87, 0]} rotation={[0, 0, -0.12]} castShadow><cylinderGeometry args={[0.045, 0.05, 0.79, 12]} /><meshStandardMaterial color="#a8ab9d" metalness={0.8} roughness={0.27} /></mesh>
       <mesh position={[0.98, 1.17, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow><cylinderGeometry args={[0.045, 0.045, 0.99, 12]} /><meshStandardMaterial color="#adb1a3" metalness={0.8} roughness={0.26} /></mesh>
-      {[-1, 1].map((side) => <mesh key={side} position={[0.98, 1.17, side * 0.43]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.058, 0.058, 0.24, 12]} /><meshStandardMaterial color="#33372d" roughness={0.9} /></mesh>)}
-      <mesh position={[1.01, 1.06, 0]} scale={[0.22, 0.23, 0.3]} castShadow><sphereGeometry args={[1, 24, 16]} /><meshStandardMaterial color={GREEN} metalness={0.2} roughness={0.3} /></mesh>
+      {[-1, 1].map((side) => <mesh key={side} position={[0.98, 1.17, side * 0.43]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.058, 0.058, 0.24, 12]} /><meshStandardMaterial color="#1a1a1a" roughness={0.9} /></mesh>)}
+      <mesh position={[1.01, 1.06, 0]} scale={[0.22, 0.23, 0.3]} castShadow><sphereGeometry args={[1, 24, 16]} /><meshStandardMaterial color={RED} metalness={0.2} roughness={0.3} /></mesh>
       <mesh position={[1.213, 1.063, 0]} scale={[0.035, 0.17, 0.205]}><sphereGeometry args={[1, 20, 16]} /><meshStandardMaterial color="#fff2c7" emissive="#f3d88b" emissiveIntensity={0.42} roughness={0.2} metalness={0.1} /></mesh>
-      <RoundedBox args={[1.15, 0.18, 0.68]} radius={0.085} smoothness={4} position={[-0.39, 0.49, 0]} castShadow><meshStandardMaterial color="#6c4730" roughness={0.86} /></RoundedBox>
-      <RoundedBox args={[1.08, 0.035, 0.61]} radius={0.016} smoothness={2} position={[-0.4, 0.58, 0]}><meshStandardMaterial color="#8d6041" roughness={0.85} /></RoundedBox>
+      <RoundedBox args={[1.15, 0.18, 0.68]} radius={0.085} smoothness={4} position={[-0.39, 0.49, 0]} castShadow><meshStandardMaterial color="#151515" roughness={0.86} /></RoundedBox>
+      <RoundedBox args={[1.08, 0.035, 0.61]} radius={0.016} smoothness={2} position={[-0.4, 0.58, 0]}><meshStandardMaterial color="#252525" roughness={0.85} /></RoundedBox>
       <RoundedBox args={[0.65, 0.055, 0.73]} radius={0.025} smoothness={2} position={[-1.22, 0.59, 0]} castShadow><meshStandardMaterial color="#c0bcad" metalness={0.8} roughness={0.3} /></RoundedBox>
       <mesh position={[-1.55, 0.07, 0]} scale={[0.07, 0.1, 0.2]}><sphereGeometry args={[1, 16, 12]} /><meshStandardMaterial color="#a93622" emissive="#87190e" emissiveIntensity={0.3} roughness={0.35} /></mesh>
       {[-1, 1].map((side) => <group key={`mirror-${side}`}><mesh position={[0.98, 1.43, side * 0.41]} rotation={[side * 0.15, 0, 0.1]}><cylinderGeometry args={[0.018, 0.018, 0.5, 8]} /><meshStandardMaterial color="#acb3a4" metalness={0.85} roughness={0.2} /></mesh><mesh position={[0.95, 1.69, side * 0.45]} scale={[0.055, 0.11, 0.15]}><sphereGeometry args={[1, 16, 12]} /><meshStandardMaterial color="#c4c8bc" metalness={0.9} roughness={0.2} /></mesh></group>)}
       <mesh position={[-0.83, 0.03, 0.371]}><circleGeometry args={[0.14, 32]} /><meshStandardMaterial color={CREAM} roughness={0.7} /></mesh>
-      <mesh position={[-0.83, 0.03, 0.375]}><torusGeometry args={[0.11, 0.008, 6, 24]} /><meshStandardMaterial color={GREEN} /></mesh>
+      <mesh position={[-0.83, 0.03, 0.375]}><torusGeometry args={[0.11, 0.008, 6, 24]} /><meshStandardMaterial color={RED} /></mesh>
     </group>
   );
 }
 
-function CameraRig({ hero }) {
+const CAMERA_STOPS = [
+  { p: 0, position: [0.12, 11, 0.7], target: [0, 0.1, 0], width: 5.65, height: 5.65 },
+  { p: 0.22, position: [1.6, 9.2, 4.5], target: [0, 0.55, 0], width: 5.8, height: 6.1 },
+  { p: 0.4, position: [3.8, 6.1, 8.2], target: [0, 0.18, 0], width: 6.15, height: 5.5 },
+  { p: 0.56, position: [5.2, 8.2, 9.5], target: [0, 1.0, -0.3], width: 8.1, height: 7.1 },
+  { p: 0.72, position: [4.4, 8.1, 8.6], target: [0, 0.45, 0], width: 7.2, height: 6.1 },
+  { p: 0.87, position: [4.4, 4.3, 8.4], target: [0, 0.25, 0], width: 5.8, height: 4.5 },
+  { p: 1, position: [3.2, 3.8, 8.6], target: [0.25, 0.25, 0], width: 5.8, height: 4.4 },
+];
+
+function CameraRig({ hero, progressRef }) {
   const { camera, size, invalidate } = useThree();
-  useEffect(() => {
-    camera.position.set(hero ? 0.1 : 4.6, hero ? 7.1 : 6.8, hero ? 5.4 : 8.3);
-    camera.lookAt(0, hero ? 0 : 0.55, 0);
-    camera.zoom = Math.min(size.width / (hero ? 5.3 : 7.6), size.height / (hero ? 4.85 : 6.7));
+  useEffect(() => { invalidate(); }, [size, invalidate]);
+  useFrame(() => {
+    const p = progressRef.current;
+    if (hero) {
+      camera.position.set(0.1, 8.4, 4.4);
+      camera.lookAt(0, 0, 0);
+      camera.zoom = Math.min(size.width / 5.1, size.height / 4.65);
+    } else {
+      const next = CAMERA_STOPS.findIndex((stop) => stop.p >= p);
+      const end = CAMERA_STOPS[next < 0 ? CAMERA_STOPS.length - 1 : next];
+      const start = CAMERA_STOPS[Math.max(0, next < 0 ? CAMERA_STOPS.length - 2 : next - 1)];
+      const t = start === end ? 0 : smooth(p, start.p, end.p);
+      camera.position.set(...start.position.map((value, index) => mix(value, end.position[index], t)));
+      camera.lookAt(...start.target.map((value, index) => mix(value, end.target[index], t)));
+      camera.zoom = Math.min(size.width / mix(start.width, end.width, t), size.height / mix(start.height, end.height, t));
+    }
     camera.updateProjectionMatrix();
-    invalidate();
-  }, [camera, size, hero, invalidate]);
+  });
   return null;
 }
 
@@ -648,20 +736,21 @@ function SceneContents({ progress, hero, reducedMotion, hoveredRef }) {
   });
   return (
     <>
-      <CameraRig hero={hero} />
-      <ambientLight intensity={1.25} />
-      <hemisphereLight args={["#fff6de", "#a0a88e", 1.35]} />
-      <directionalLight position={[-3.5, 7, 5]} intensity={3.4} color="#fff5e0" castShadow shadow-mapSize={[1024, 1024]} shadow-camera-near={0.1} shadow-camera-far={24} shadow-camera-left={-7} shadow-camera-right={7} shadow-camera-top={7} shadow-camera-bottom={-7} shadow-bias={-0.0006} shadow-normalBias={0.03} />
-      <directionalLight position={[4, 3, -5]} intensity={1.7} color="#fff4d6" />
-      <directionalLight position={[-5, 1, -3]} intensity={0.8} color="#bdc9bb" />
+      <CameraRig hero={hero} progressRef={progressRef} />
+      <ambientLight intensity={0.52} />
+      <hemisphereLight args={["#fff0dc", "#221b18", 0.9]} />
+      <directionalLight position={[-3.5, 7, 5]} intensity={3.15} color="#fff0da" castShadow shadow-mapSize={[1024, 1024]} shadow-camera-near={0.1} shadow-camera-far={24} shadow-camera-left={-7} shadow-camera-right={7} shadow-camera-top={7} shadow-camera-bottom={-7} shadow-bias={-0.0006} shadow-normalBias={0.03} />
+      <directionalLight position={[4, 3, -5]} intensity={2.15} color="#d8dce4" />
+      <directionalLight position={[-5, 1, -3]} intensity={0.7} color="#f7ae91" />
+      <pointLight position={[4, 3, -2]} intensity={14} color="#e5392f" distance={12} decay={2} />
       <group ref={assembly} rotation={[0, -0.12, 0]}>
         <group ref={packageGroup}>
           <MemoPizza progressRef={progressRef} hero={hero} reducedMotion={reducedMotion} />
           {!hero && <MemoPizzaBox progressRef={progressRef} />}
         </group>
         {!hero && <><MemoFire progressRef={progressRef} reducedMotion={reducedMotion} /><MemoScooter progressRef={progressRef} /><group ref={road} visible={false} position={[0, -1.158, 0]}>
-          <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={[7.2, 2.1]} /><meshStandardMaterial color="#cfcebc" transparent opacity={0.24} roughness={1} depthWrite={false} /></mesh>
-          {[-2.8, -1.7, -0.6, 0.5, 1.6, 2.7].map((x) => <mesh key={x} position={[x, 0.006, 0.82]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[0.5, 0.03]} /><meshBasicMaterial color="#a8af98" transparent opacity={0.35} /></mesh>)}
+          <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={[7.2, 2.1]} /><meshStandardMaterial color="#343132" transparent opacity={0.24} roughness={1} depthWrite={false} /></mesh>
+          {[-2.8, -1.7, -0.6, 0.5, 1.6, 2.7].map((x) => <mesh key={x} position={[x, 0.006, 0.82]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[0.5, 0.03]} /><meshBasicMaterial color="#b5a9a3" transparent opacity={0.35} /></mesh>)}
         </group></>}
       </group>
       <mesh ref={shadow} position={[0, hero ? -0.85 : -1.169, 0]} rotation={[-Math.PI / 2, 0, 0]}>
@@ -670,7 +759,7 @@ function SceneContents({ progress, hero, reducedMotion, hoveredRef }) {
       </mesh>
       <mesh position={[0, hero ? -0.86 : -1.17, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[18, 18]} />
-        <shadowMaterial transparent opacity={0.14} color="#0a1c10" depthWrite={false} />
+        <shadowMaterial transparent opacity={0.14} color="#050505" depthWrite={false} />
       </mesh>
     </>
   );
