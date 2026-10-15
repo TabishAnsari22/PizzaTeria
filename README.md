@@ -24,6 +24,7 @@ The site exports to `out/` and can be hosted as static files. The development pr
 - Reversible scroll-driven 3D dough, ingredients, baking, hinged packaging and scooter delivery.
 - A doubled scroll journey, shared frame-based smoothing, continuous camera transitions and a posed delivery rider with anchored hands and feet.
 - Fixed physical pizza/carton size, a supported roller-counter handoff onto the rear cargo rack, and individually modeled fingers and thumbs gripping the handlebars.
+- An extended delivery ride with a tracking camera; the extra scroll space is allocated after loading.
 - Original generated pizza and kitchen photography, optimized as WebP.
 - Pizza category filtering, persistent shopping bag, quantity controls and accessible checkout drawer.
 - Responsive layouts, local fonts and reduced-motion support.

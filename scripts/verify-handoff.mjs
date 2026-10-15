@@ -11,6 +11,8 @@ const {
   PACKAGE_SCALE, BOX_HALF, RACK_HALF, RACK_POSITION,
   STATION_NEAR, STATION_FAR, STATION_RIGHT, STATION_EXTENSION_WIDTH,
   DECK_HEIGHT, PACKING_POSITION, getJourneyPose, getJourneyCamera,
+  JOURNEY_HEIGHT_VH, ORIGINAL_TRAVEL_VH, JOURNEY_TRAVEL_VH, DEPARTURE_START,
+  RIDE_DISTANCE, getStoryProgress, getScrollProgress,
 } = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 
 const EPSILON = 1e-9;
@@ -250,4 +252,32 @@ test('the roller extension supports the entering carton until it reaches the fix
     near(pose.boxX, 0, `Carton is on the fixed deck before extension retraction at ${progress}`);
     assert.ok(pose.extensionDrop >= 0 && pose.extensionX <= 0, `Extension withdraws below the seated carton at ${progress}`);
   }
+});
+
+test('the added scroll distance extends riding while preserving preparation and loading', () => {
+  near(JOURNEY_HEIGHT_VH - 100, JOURNEY_TRAVEL_VH, 'Journey travel excludes the sticky viewport');
+  const departureScroll = getScrollProgress(DEPARTURE_START);
+  const originalRideTravel = ORIGINAL_TRAVEL_VH * (1 - DEPARTURE_START);
+  const extendedRideTravel = JOURNEY_TRAVEL_VH * (1 - departureScroll);
+  assert.ok(extendedRideTravel >= 3 * originalRideTravel, 'The ride lasts at least three times its previous scroll distance');
+  near(RIDE_DISTANCE, 2.4, 'Physical ride distance is extended to 2.4 units');
+  for (let index = 0; index <= SAMPLE_COUNT; index++) {
+    const progress = index / SAMPLE_COUNT;
+    near(getStoryProgress(getScrollProgress(progress)), progress, `Story/scroll round trip at ${progress}`);
+    near(getScrollProgress(getStoryProgress(progress)), progress, `Scroll/story round trip at ${progress}`);
+    if (progress <= DEPARTURE_START) {
+      near(getScrollProgress(progress) * JOURNEY_TRAVEL_VH, progress * ORIGINAL_TRAVEL_VH, `Preparation/loading retain their physical scroll position at ${progress}`);
+    }
+  }
+  near(getStoryProgress(-1), 0, 'Mapped story clamps before the section');
+  near(getStoryProgress(2), 1, 'Mapped story clamps after the section');
+  near(getScrollProgress(-1), 0, 'Mapped scroll clamps before the section');
+  near(getScrollProgress(2), 1, 'Mapped scroll clamps after the section');
+  const parked = getJourneyPose(DEPARTURE_START);
+  const delivered = getJourneyPose(1);
+  near(parked.rideDistance, 0, 'The ride begins after loading finishes');
+  near(delivered.rideDistance, RIDE_DISTANCE, 'The ride covers the requested distance');
+  near(delivered.scooterX - parked.scooterX, RIDE_DISTANCE, 'Actual scooter translation matches ride distance');
+  near(delivered.wheelDistance - parked.wheelDistance, RIDE_DISTANCE, 'Wheels roll over the full extended route');
+  near(delivered.packagePosition[0] - parked.packagePosition[0], RIDE_DISTANCE, 'Loaded carton travels with the scooter');
 });

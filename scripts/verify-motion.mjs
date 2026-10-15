@@ -1,6 +1,9 @@
 import { chromium } from '@playwright/test';
 import assert from 'node:assert/strict';
-import { writeFile, mkdir } from 'node:fs/promises';
+import { writeFile, mkdir, readFile } from 'node:fs/promises';
+
+const journeySource = await readFile(new URL('../lib/journeyMotion.js', import.meta.url), 'utf8');
+const { getScrollProgress } = await import(`data:text/javascript;base64,${Buffer.from(journeySource).toString('base64')}`);
 
 const url = process.argv[2] || 'http://127.0.0.1:3001';
 const browser = await chromium.launch({ executablePath: 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe', headless: true, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
@@ -51,7 +54,7 @@ try {
     report[`${label}Windows`] = windows;
     assert.fail(`${label}: scene did not stop rendering after settling (${windows.join(', ')} clears per window)`);
   };
-  const scroll = progress => page.evaluate(({ top, height, progress }) => window.scrollTo({ top: top + (height - innerHeight) * progress, behavior: 'instant' }), { ...story, progress });
+  const scroll = progress => page.evaluate(({ top, height, progress }) => window.scrollTo({ top: top + (height - innerHeight) * progress, behavior: 'instant' }), { ...story, progress: getScrollProgress(progress) });
   await scroll(.2);
   report.idleFrames = await waitForQuiet('idle');
   await reset();

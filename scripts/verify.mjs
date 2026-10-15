@@ -1,6 +1,9 @@
 import { chromium } from '@playwright/test';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
+
+const journeySource = await readFile(new URL('../lib/journeyMotion.js', import.meta.url), 'utf8');
+const { getScrollProgress } = await import(`data:text/javascript;base64,${Buffer.from(journeySource).toString('base64')}`);
 
 const url = process.argv[2] || 'http://127.0.0.1:3000';
 await mkdir('artifacts', { recursive: true });
@@ -45,10 +48,10 @@ try {
   await page.waitForTimeout(850);
   await page.locator('.story-section').screenshot({ path: 'artifacts/desktop-story.png', timeout: 60000 });
   const story = await page.locator('.journey').evaluate(el => ({ top: el.offsetTop, height: el.offsetHeight }));
-  assert.equal(story.height - 1000, 7800, 'The scrollable pizza journey should be exactly twice the previous 3900px at this viewport');
+  assert.equal(story.height - 1000, 8600, 'The extended journey adds 800px of riding while retaining the preparation and loading distances');
   await page.addStyleTag({ content: 'html{scroll-behavior:auto!important}' });
   for (const [name, progress] of [['dough', .01], ['ingredients', .22], ['fire', .4], ['open-box', .60], ['box', .72], ['arriving', .85], ['loading', .915], ['delivery', .95], ['reverse-loading', .91], ['reverse-box', .60], ['reverse', .22]]) {
-    await page.evaluate(({ top, height, progress }) => window.scrollTo({ top: top + (height - innerHeight) * progress, behavior: 'instant' }), { ...story, progress });
+    await page.evaluate(({ top, height, progress }) => window.scrollTo({ top: top + (height - innerHeight) * progress, behavior: 'instant' }), { ...story, progress: getScrollProgress(progress) });
     await page.waitForTimeout(1500);
     await page.screenshot({ path: `artifacts/desktop-${name}.png`, timeout: 60000 });
     console.log(`3D stage checked: ${name}`);
@@ -67,16 +70,16 @@ try {
   assert.equal(await page.getByRole('button', { name: 'Open navigation' }).getAttribute('aria-expanded'), 'false');
   await page.screenshot({ path: 'artifacts/mobile-menu.png' });
   const mobileStory = await page.locator('.journey').evaluate(el => ({ top: el.offsetTop, height: el.offsetHeight }));
-  await page.evaluate(({ top, height }) => window.scrollTo({ top: top + (height - innerHeight) * .60, behavior: 'instant' }), mobileStory);
+  await page.evaluate(({ top, height, progress }) => window.scrollTo({ top: top + (height - innerHeight) * progress, behavior: 'instant' }), { ...mobileStory, progress: getScrollProgress(.60) });
   await page.waitForTimeout(900);
   await page.screenshot({ path: 'artifacts/mobile-journey.png' });
   const mobileCanvas = await page.locator('.journey-scene canvas').boundingBox();
   assert.ok(mobileCanvas.x >= -1 && mobileCanvas.x + mobileCanvas.width <= 391, 'The entire mobile camera frame must stay inside the viewport');
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-  await page.evaluate(({ top, height }) => window.scrollTo({ top: top + (height - innerHeight) * .915, behavior: 'instant' }), mobileStory);
+  await page.evaluate(({ top, height, progress }) => window.scrollTo({ top: top + (height - innerHeight) * progress, behavior: 'instant' }), { ...mobileStory, progress: getScrollProgress(.915) });
   await page.waitForTimeout(1000);
   await page.screenshot({ path: 'artifacts/mobile-loading.png' });
-  await page.evaluate(({ top, height }) => window.scrollTo({ top: top + (height - innerHeight) * .95, behavior: 'instant' }), mobileStory);
+  await page.evaluate(({ top, height, progress }) => window.scrollTo({ top: top + (height - innerHeight) * progress, behavior: 'instant' }), { ...mobileStory, progress: getScrollProgress(.95) });
   await page.waitForTimeout(1000);
   await page.screenshot({ path: 'artifacts/mobile-delivery.png' });
   assert.match(await page.locator('.journey-timeline button.active').innerText(), /05\s*Your table/);

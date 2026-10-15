@@ -904,8 +904,8 @@ function SceneContents({ progress, progressSource, active, hero, reducedMotion, 
           {!hero && <MemoPizzaBox progressRef={progressRef} />}
         </group>
         {!hero && <><PackingStation progressRef={progressRef} /><group position={PACKING_POSITION} scale={PACKAGE_SCALE}><MemoFire progressRef={progressRef} reducedMotion={reducedMotion} /></group><MemoScooter progressRef={progressRef} reducedMotion={reducedMotion} /><group ref={road} visible={false} position={[0, -1.158, 0]}>
-          <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={[7.2, 2.1]} /><meshStandardMaterial color="#343132" transparent opacity={0.24} roughness={1} depthWrite={false} /></mesh>
-          {[-2.8, -1.7, -0.6, 0.5, 1.6, 2.7].map((x) => <mesh key={x} position={[x, 0.006, 0.82]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[0.5, 0.03]} /><meshBasicMaterial color="#b5a9a3" transparent opacity={0.35} /></mesh>)}
+          <mesh position={[1.8, 0, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={[11.2, 2.1]} /><meshStandardMaterial color="#343132" transparent opacity={0.24} roughness={1} depthWrite={false} /></mesh>
+          {[-2.8, -1.7, -0.6, 0.5, 1.6, 2.7, 3.8, 4.9, 6.0].map((x) => <mesh key={x} position={[x, 0.006, 0.82]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[0.5, 0.03]} /><meshBasicMaterial color="#b5a9a3" transparent opacity={0.35} /></mesh>)}
         </group></>}
       </group>
       <mesh ref={shadow} position={[0, hero ? -0.85 : -1.169, 0]} rotation={[-Math.PI / 2, 0, 0]}>
