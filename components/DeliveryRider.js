@@ -46,7 +46,8 @@ function useMaterials() {
     const fabric = (color, roughness = 0.88) => new THREE.MeshStandardMaterial({ color, roughness, bumpMap: weave, bumpScale: 0.004 });
     return {
       coat: fabric("#282a2d"), panel: fabric("#a62525", 0.82), pants: fabric("#303236", 0.94),
-      cuff: fabric("#16181b"), glove: new THREE.MeshStandardMaterial({ color: "#1b1d20", roughness: 0.7 }),
+      cuff: fabric("#16181b"), skin: new THREE.MeshPhysicalMaterial({ color: "#bd8d6c", roughness: 0.66, clearcoat: 0.05 }),
+      nail: new THREE.MeshStandardMaterial({ color: "#d9b9a2", roughness: 0.58 }),
       shoe: new THREE.MeshStandardMaterial({ color: "#17191c", roughness: 0.67 }),
       sole: new THREE.MeshStandardMaterial({ color: "#090b0d", roughness: 0.85 }), weave,
     };
@@ -172,6 +173,89 @@ function sleevePose(side, lean) {
   ];
 }
 
+const HAND_GRIP_RADIUS = 0.058;
+
+function palmGeometry(side) {
+  // Wrist, heel of palm, metacarpals and the rounded knuckle line are one surface.
+  const rings = [
+    [0.887, 1.19, 0.039, 0.028], [0.915, 1.211, 0.047, 0.03],
+    [0.941, 1.238, 0.059, 0.024], [0.970, 1.253, 0.067, 0.024],
+    [0.991, 1.250, 0.062, 0.023], [1.008, 1.243, 0.049, 0.014],
+    [1.014, 1.24, 0, 0],
+  ];
+  const positions = [], indices = [], columns = 32;
+  rings.forEach(([x, y, width, thickness]) => {
+    for (let i = 0; i <= columns; i++) {
+      const angle = i / columns * TAU;
+      positions.push(x, y + Math.cos(angle) * thickness, side * 0.43 + Math.sin(angle) * width);
+    }
+  });
+  for (let row = 0; row < rings.length - 1; row++) for (let i = 0; i < columns; i++) {
+    const a = row * (columns + 1) + i, b = a + columns + 1;
+    indices.push(a, a + 1, b, a + 1, b + 1, b);
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices); geometry.computeVertexNormals();
+  return geometry;
+}
+
+function digitProfile(index, t) {
+  const base = [0.0155, 0.016, 0.015, 0.0128, 0.0205][index];
+  const joints = Math.exp(-Math.pow((t - 0.37) / 0.08, 2)) * 0.0013 + Math.exp(-Math.pow((t - 0.7) / 0.075, 2)) * 0.001;
+  const nominal = base * (1 - 0.27 * t) + joints;
+  const cap = t < 0.91 ? 1 : Math.sqrt(Math.max(0, 1 - Math.pow((t - 0.91) / 0.09, 2)));
+  return { nominal, radius: nominal * cap };
+}
+
+function digitPoint(side, index, t) {
+  const thumb = index === 4;
+  const from = (thumb ? 135 : 105 - index * 3) * Math.PI / 180;
+  const to = (thumb ? 271 : [-70, -79, -65, -44][index]) * Math.PI / 180;
+  const theta = mix(from, to, t);
+  const { nominal, radius } = digitProfile(index, t);
+  // The inner skin surface softly contacts the cylindrical rubber grip by 0.6 mm.
+  const radial = HAND_GRIP_RADIUS + nominal - 0.0006;
+  const z = side * (thumb ? 0.366 - 0.016 * Math.sin(t * Math.PI) + 0.007 * t : 0.374 + index * 0.036);
+  return { theta, radial, radius, nominal, z };
+}
+
+function curledDigitGeometry(side, index, nail = false) {
+  const positions = [], indices = [];
+  const rows = nail ? 9 : 34, columns = nail ? 8 : 16;
+  for (let row = 0; row <= rows; row++) {
+    const t = nail ? mix(0.73, 0.91, row / rows) : row / rows;
+    const { theta, radial, radius, nominal, z } = digitPoint(side, index, t);
+    for (let column = 0; column <= columns; column++) {
+      const angle = column / columns * TAU;
+      const lateral = nail ? (column / columns * 2 - 1) * nominal * 0.55 : Math.sin(angle) * radius;
+      const outside = nail ? Math.sqrt(Math.max(0, nominal * nominal - lateral * lateral)) + 0.0005 : Math.cos(angle) * radius;
+      positions.push(0.98 + Math.cos(theta) * (radial + outside), 1.17 + Math.sin(theta) * (radial + outside), z + lateral);
+    }
+  }
+  for (let row = 0; row < rows; row++) for (let column = 0; column < columns; column++) {
+    const a = row * (columns + 1) + column, b = a + columns + 1;
+    if (index === 4) indices.push(a, b, a + 1, a + 1, b, b + 1);
+    else indices.push(a, a + 1, b, a + 1, b + 1, b);
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices); geometry.computeVertexNormals();
+  return geometry;
+}
+
+function Hand({ side, materials }) {
+  const geometry = useMemo(() => ({ palm: palmGeometry(side), digits: Array.from({ length: 5 }, (_, i) => curledDigitGeometry(side, i)), nails: Array.from({ length: 5 }, (_, i) => curledDigitGeometry(side, i, true)) }), [side]);
+  useEffect(() => () => { geometry.palm.dispose(); geometry.digits.forEach((item) => item.dispose()); geometry.nails.forEach((item) => item.dispose()); }, [geometry]);
+  return <group name={side > 0 ? "rider-right-five-finger-hand" : "rider-left-five-finger-hand"}>
+    <mesh geometry={geometry.palm} material={materials.skin} castShadow />
+    {geometry.digits.map((digit, i) => <group key={i} name={["index", "middle", "ring", "little", "thumb"][i]}>
+      <mesh geometry={digit} material={materials.skin} castShadow />
+      <mesh geometry={geometry.nails[i]} material={materials.nail} />
+    </group>)}
+  </group>;
+}
+
 function Arm({ side, materials, progressRef, reducedMotion }) {
   const radii = [0.172, 0.152, 0.124, 0.113, 0.073];
   const geometry = useMemo(() => makeGarment(sleevePose(side, 0), radii, 0.006), [side]);
@@ -185,10 +269,8 @@ function Arm({ side, materials, progressRef, reducedMotion }) {
   });
   return <group>
     <mesh geometry={geometry} material={materials.coat} castShadow />
-    <Volume position={[0.911, 1.175, side * 0.432]} scale={[0.061, 0.071, 0.072]} material={materials.cuff} rotation={[0, 0, -0.025]} />
-    <Volume position={[0.98, 1.193, side * 0.43]} scale={[0.1, 0.064, 0.082]} material={materials.glove} />
-    <Volume position={[0.971, 1.145, side * 0.377]} scale={[0.058, 0.033, 0.036]} material={materials.glove} />
-    {[0, 1, 2, 3].map((finger) => <Stitch key={finger} points={[[1.025, 1.212, side * (0.383 + finger * 0.026)], [1.052, 1.181, side * (0.383 + finger * 0.026)], [1.035, 1.146, side * (0.383 + finger * 0.026)]]} color="#0f1114" radius={0.004} />)}
+    <Volume position={[0.9, 1.175, side * 0.432]} scale={[0.047, 0.067, 0.065]} material={materials.cuff} rotation={[0, 0, -0.025]} />
+    <Hand side={side} materials={materials} />
   </group>;
 }
 

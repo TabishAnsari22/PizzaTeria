@@ -17,12 +17,13 @@ Open http://127.0.0.1:3000. Node.js 20.9 or newer is required; Node.js 22 is rec
 npm run build
 ```
 
-The site exports to `out/` and can be hosted as static files. Run `npm start` to preview the production export at http://127.0.0.1:3001. No API keys or remote 3D assets are required.
+The site exports to `out/` and can be hosted as static files. The development preview uses `.next-development/` so it can run beside production compilation on Windows. Run `npm start` to preview the production export at http://127.0.0.1:3001. No API keys or remote 3D assets are required.
 
 ## Experience
 
 - Reversible scroll-driven 3D dough, ingredients, baking, hinged packaging and scooter delivery.
 - A doubled scroll journey, shared frame-based smoothing, continuous camera transitions and a posed delivery rider with anchored hands and feet.
+- Fixed physical pizza/carton size, a supported roller-counter handoff onto the rear cargo rack, and individually modeled fingers and thumbs gripping the handlebars.
 - Original generated pizza and kitchen photography, optimized as WebP.
 - Pizza category filtering, persistent shopping bag, quantity controls and accessible checkout drawer.
 - Responsive layouts, local fonts and reduced-motion support.
@@ -36,3 +37,5 @@ The checkout is a clearly labelled demonstration. It does not process payments, 
 With the development server running, `node scripts/verify-hydration.mjs` simulates the extension-injected `cz-shortcut-listen` body attribute and checks normal and reduced-motion hydration. Only the body attribute warning is suppressed; descendant hydration checks remain enabled.
 
 With the production preview running, `node --test scripts/verify-motion.mjs` checks easing after forward/reverse scroll input, idle settling, visible embers and paused offscreen rendering.
+
+`node --test scripts/verify-handoff.mjs` checks dense timeline samples for carton/rider clearance, supported loading, rack attachment, reversible motion and complete open-lid/rider framing on desktop and mobile.

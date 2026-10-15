@@ -5,6 +5,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
 import DeliveryRider from "./DeliveryRider";
+import { getJourneyPose, getJourneyCamera, PACKAGE_SCALE, PACKING_POSITION, RACK_POSITION, STATION_NEAR, STATION_FAR, STATION_RIGHT, STATION_EXTENSION_WIDTH, DECK_HEIGHT } from "../lib/journeyMotion";
 
 const RED = "#c32e2a";
 const BLACK = "#111111";
@@ -24,8 +25,6 @@ const readProgress = (source, fallback = 0) => {
   const value = source?.get ? source.get() : fallback;
   return clamp(Number.isFinite(value) ? value : 0);
 };
-const scooterEntry = (p) => -5.2 * (1 - smoother(p, 0.755, 0.875));
-const deliveryDistance = (p) => scooterEntry(p) + 5.2 - 0.6 * smoother(p, 0.76, 0.85) + 1.3 * smoother(p, 0.85, 1);
 const CANVAS_CAMERA = { position: [0, 7, 6], near: 0.1, far: 50, zoom: 85 };
 const CANVAS_GL = { alpha: true, antialias: true, powerPreference: "high-performance" };
 const CANVAS_DPR = [1, 1.5];
@@ -568,7 +567,7 @@ function Pizza({ progressRef, hero, reducedMotion }) {
     const undersideShader = baseMaterial.current?.userData.shader;
     if (undersideShader) undersideShader.uniforms.uBake.value = baked;
     if (group.current) {
-      group.current.position.y = hero ? Math.sin(reducedMotion ? 0 : clock.elapsedTime * 0.5) * 0.015 : mix(0.2, -0.12, smoother(p, 0.515, 0.665));
+      group.current.position.y = hero ? Math.sin(reducedMotion ? 0 : clock.elapsedTime * 0.5) * 0.015 : getJourneyPose(p).pizzaY;
       group.current.rotation.y = hero ? 0.18 : mix(-0.3, 0.16, smooth(p, 0, 0.48));
     }
     falling.current.forEach((item, index) => {
@@ -627,14 +626,13 @@ function PizzaBox({ progressRef }) {
   useEffect(() => () => { brandTexture.dispose(); sideTexture.dispose(); innerTexture.dispose(); }, [brandTexture, sideTexture, innerTexture]);
   useFrame(() => {
     const p = progressRef.current;
-    const appear = smoother(p, 0.46, 0.575);
-    group.current.visible = appear > 0.002;
-    group.current.scale.setScalar(1);
-    group.current.position.y = -(1 - appear) * 1.45;
-    lid.current.rotation.x = mix(-2.02, 0, smoother(p, 0.59, 0.765));
+    const pose = getJourneyPose(p);
+    group.current.visible = p > 0.49;
+    group.current.position.set(pose.boxX, pose.boxY, 0);
+    lid.current.rotation.x = pose.lidAngle;
   });
   return (
-    <group ref={group} visible={false}>
+    <group ref={group} name="pizza-box" visible={false}>
       <RoundedBox args={[4.94, 0.095, 4.94]} radius={0.025} smoothness={2} position={[0, -0.3, 0]} receiveShadow castShadow><meshStandardMaterial color={BLACK} roughness={0.82} /></RoundedBox>
       <mesh position={[0, -0.25, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={[4.85, 4.85]} /><meshStandardMaterial color={CREAM} roughness={0.95} /></mesh>
       {[-1, 1].map((side) => <group key={side}><mesh position={[side * 2.455, -0.015, 0]} castShadow receiveShadow><boxGeometry args={[0.075, 0.58, 4.94]} /><meshStandardMaterial color={BLACK} roughness={0.82} /></mesh><mesh position={[side * 2.414, -0.015, 0]} rotation={[0, -side * Math.PI / 2, 0]}><planeGeometry args={[4.82, 0.55]} /><meshStandardMaterial color={CREAM} roughness={0.94} /></mesh></group>)}
@@ -718,14 +716,15 @@ function Scooter({ progressRef, reducedMotion }) {
   const wheels = useRef([]);
   useFrame(() => {
     const p = progressRef.current;
-    group.current.visible = p > 0.755;
+    const pose = getJourneyPose(p);
+    group.current.visible = p > 0.78;
     group.current.scale.setScalar(1);
-    group.current.position.set(scooterEntry(p), 0, 0);
-    const distance = deliveryDistance(p);
+    group.current.position.set(pose.scooterX, 0, 0);
+    const distance = pose.wheelDistance;
     wheels.current.forEach((wheel) => { if (wheel) wheel.rotation.z = -distance / 0.45; });
   });
   return (
-    <group ref={group} visible={false}>
+    <group ref={group} name="delivery-scooter" visible={false}>
       <DeliveryRider progressRef={progressRef} reducedMotion={reducedMotion} />
       <Wheel position={[-1.1, -0.7, 0]} wheelRef={(element) => { wheels.current[0] = element; }} />
       <Wheel position={[1.12, -0.7, 0]} wheelRef={(element) => { wheels.current[1] = element; }} />
@@ -742,56 +741,39 @@ function Scooter({ progressRef, reducedMotion }) {
       <mesh position={[1.213, 1.063, 0]} scale={[0.035, 0.17, 0.205]}><sphereGeometry args={[1, 20, 16]} /><meshStandardMaterial color="#fff2c7" emissive="#f3d88b" emissiveIntensity={0.42} roughness={0.2} metalness={0.1} /></mesh>
       <RoundedBox args={[1.15, 0.18, 0.68]} radius={0.085} smoothness={4} position={[-0.39, 0.49, 0]} castShadow><meshStandardMaterial color="#151515" roughness={0.86} /></RoundedBox>
       <RoundedBox args={[1.08, 0.035, 0.61]} radius={0.016} smoothness={2} position={[-0.4, 0.58, 0]}><meshStandardMaterial color="#252525" roughness={0.85} /></RoundedBox>
-      <RoundedBox args={[0.65, 0.055, 0.73]} radius={0.025} smoothness={2} position={[-1.22, 0.59, 0]} castShadow><meshStandardMaterial color="#c0bcad" metalness={0.8} roughness={0.3} /></RoundedBox>
+      <RoundedBox args={[1.4, 0.055, 1.4]} radius={0.025} smoothness={2} position={RACK_POSITION} castShadow receiveShadow><meshStandardMaterial color="#aaa59b" metalness={0.8} roughness={0.34} /></RoundedBox>
+      {[-1, 1].map(side => <group key={`rack-${side}`}>
+        <mesh position={[-1.66, 0.625, side * 0.655]}><boxGeometry args={[1.28, 0.014, 0.022]} /><meshStandardMaterial color="#38383a" roughness={0.8} /></mesh>
+        <mesh position={[-1.57, 0.31, side * 0.29]} rotation={[0, 0, -0.55]} castShadow><cylinderGeometry args={[0.022, 0.022, 0.64, 10]} /><meshStandardMaterial color="#93928c" metalness={0.8} roughness={0.3} /></mesh>
+      </group>)}
       <mesh position={[-1.55, 0.07, 0]} scale={[0.07, 0.1, 0.2]}><sphereGeometry args={[1, 16, 12]} /><meshStandardMaterial color="#a93622" emissive="#87190e" emissiveIntensity={0.3} roughness={0.35} /></mesh>
-      {[-1, 1].map((side) => <group key={`mirror-${side}`}><mesh position={[0.98, 1.43, side * 0.41]} rotation={[side * 0.15, 0, 0.1]}><cylinderGeometry args={[0.018, 0.018, 0.5, 8]} /><meshStandardMaterial color="#acb3a4" metalness={0.85} roughness={0.2} /></mesh><mesh position={[0.95, 1.69, side * 0.45]} scale={[0.055, 0.11, 0.15]}><sphereGeometry args={[1, 16, 12]} /><meshStandardMaterial color="#c4c8bc" metalness={0.9} roughness={0.2} /></mesh></group>)}
+      {[-1, 1].map((side) => <group key={`mirror-${side}`}><mesh position={[0.98, 1.415, side * 0.36]} rotation={[side * 0.38, 0, 0.06]}><cylinderGeometry args={[0.018, 0.018, 0.486, 8]} /><meshStandardMaterial color="#acb3a4" metalness={0.85} roughness={0.2} /></mesh><mesh position={[0.95, 1.69, side * 0.45]} scale={[0.055, 0.11, 0.15]}><sphereGeometry args={[1, 16, 12]} /><meshStandardMaterial color="#c4c8bc" metalness={0.9} roughness={0.2} /></mesh></group>)}
       <mesh position={[-0.83, 0.03, 0.371]}><circleGeometry args={[0.14, 32]} /><meshStandardMaterial color={CREAM} roughness={0.7} /></mesh>
       <mesh position={[-0.83, 0.03, 0.375]}><torusGeometry args={[0.11, 0.008, 6, 24]} /><meshStandardMaterial color={RED} /></mesh>
     </group>
   );
 }
 
-const CAMERA_STOPS = [
-  { p: 0, position: [0.12, 11, 0.7], target: [0, 0.1, 0], width: 5.65, height: 5.65 },
-  { p: 0.22, position: [1.6, 9.2, 4.5], target: [0, 0.55, 0], width: 5.8, height: 6.1 },
-  { p: 0.4, position: [3.8, 6.1, 8.2], target: [0, 0.18, 0], width: 6.15, height: 5.5 },
-  { p: 0.56, position: [5.2, 8.2, 9.5], target: [0, 1.0, -0.3], width: 8.1, height: 7.1 },
-  { p: 0.72, position: [4.4, 8.1, 8.6], target: [0, 0.45, 0], width: 7.2, height: 6.1 },
-  { p: 0.87, position: [4.4, 4.8, 8.4], target: [0, 0.8, 0], width: 6.3, height: 5.7 },
-  { p: 1, position: [3.2, 4.6, 8.6], target: [0.25, 0.8, 0], width: 6.3, height: 5.7 },
-];
-
-function cameraTrack(values) {
-  const slopes = values.slice(1).map((value, index) => (value - values[index]) / (CAMERA_STOPS[index + 1].p - CAMERA_STOPS[index].p));
-  const tangents = values.map((_, index) => {
-    if (index === 0) return slopes[0];
-    if (index === values.length - 1) return slopes[slopes.length - 1];
-    const before = slopes[index - 1];
-    const after = slopes[index];
-    if (before * after <= 0) return 0;
-    const h0 = CAMERA_STOPS[index].p - CAMERA_STOPS[index - 1].p;
-    const h1 = CAMERA_STOPS[index + 1].p - CAMERA_STOPS[index].p;
-    const w0 = 2 * h1 + h0;
-    const w1 = h1 + 2 * h0;
-    return (w0 + w1) / (w0 / before + w1 / after);
+function PackingStation({ progressRef }) {
+  const extension = useRef();
+  const length = STATION_FAR - STATION_NEAR;
+  const centerZ = (STATION_NEAR + STATION_FAR) / 2;
+  useFrame(() => {
+    const pose = getJourneyPose(progressRef.current);
+    extension.current.position.set(STATION_RIGHT + STATION_EXTENSION_WIDTH / 2 + pose.extensionX, -pose.extensionDrop, centerZ);
+    extension.current.visible = pose.extensionX > -STATION_EXTENSION_WIDTH + 0.001;
   });
-  return { values, tangents };
-}
-
-const CAMERA_TRACKS = [
-  ...[0, 1, 2].map((axis) => cameraTrack(CAMERA_STOPS.map((stop) => stop.position[axis]))),
-  ...[0, 1, 2].map((axis) => cameraTrack(CAMERA_STOPS.map((stop) => stop.target[axis]))),
-  cameraTrack(CAMERA_STOPS.map((stop) => stop.width)),
-  cameraTrack(CAMERA_STOPS.map((stop) => stop.height)),
-];
-
-function cameraSample(track, segment, t, span) {
-  const t2 = t * t;
-  const t3 = t2 * t;
-  const a = track.values[segment];
-  const b = track.values[segment + 1];
-  const value = (2 * t3 - 3 * t2 + 1) * a + (t3 - 2 * t2 + t) * span * track.tangents[segment] + (-2 * t3 + 3 * t2) * b + (t3 - t2) * span * track.tangents[segment + 1];
-  return clamp(value, Math.min(a, b), Math.max(a, b));
+  return <group name="packing-counter">
+    <RoundedBox args={[1.5, 0.16, length]} radius={0.035} smoothness={2} position={[-1.66, DECK_HEIGHT - 0.13, centerZ]} castShadow receiveShadow><meshStandardMaterial color="#202022" metalness={0.25} roughness={0.66} /></RoundedBox>
+    {Array.from({ length: 13 }, (_, i) => <mesh key={i} position={[-1.66, DECK_HEIGHT - 0.025, STATION_NEAR + 0.04 + i * (length - 0.08) / 12]} rotation={[0, 0, Math.PI / 2]} castShadow receiveShadow><cylinderGeometry args={[0.025, 0.025, 1.38, 14]} /><meshStandardMaterial color="#9c9690" metalness={0.8} roughness={0.38} /></mesh>)}
+    {[-1, 1].map(side => <mesh key={`edge-${side}`} position={[-1.66 + side * 0.727, DECK_HEIGHT - 0.023, centerZ]} castShadow><boxGeometry args={[0.025, 0.045, length]} /><meshStandardMaterial color="#c32e2a" metalness={0.2} roughness={0.4} /></mesh>)}
+    {[-1, 1].flatMap(x => [-1, 1].map(z => <mesh key={`leg-${x}-${z}`} position={[-1.66 + x * 0.62, -0.36, centerZ + z * (length / 2 - 0.13)]} castShadow><boxGeometry args={[0.055, 1.58, 0.055]} /><meshStandardMaterial color="#262628" metalness={0.6} roughness={0.5} /></mesh>))}
+    <mesh position={[-1.66, 0.3, STATION_FAR + 0.004]}><boxGeometry args={[1.15, 0.018, 0.008]} /><meshStandardMaterial color={RED} metalness={0.4} roughness={0.35} /></mesh>
+    <group ref={extension} name="packing-counter-extension" position={[STATION_RIGHT + STATION_EXTENSION_WIDTH / 2, 0, centerZ]}>
+      <RoundedBox args={[STATION_EXTENSION_WIDTH, 0.055, length]} radius={0.02} smoothness={2} position={[0, DECK_HEIGHT - 0.075, 0]} castShadow receiveShadow><meshStandardMaterial color="#242426" metalness={0.45} roughness={0.55} /></RoundedBox>
+      {Array.from({ length: 13 }, (_, i) => <mesh key={i} position={[0, DECK_HEIGHT - 0.025, -length / 2 + 0.04 + i * (length - 0.08) / 12]} rotation={[0, 0, Math.PI / 2]} castShadow receiveShadow><cylinderGeometry args={[0.025, 0.025, STATION_EXTENSION_WIDTH - 0.04, 14]} /><meshStandardMaterial color="#9c9690" metalness={0.8} roughness={0.38} /></mesh>)}
+    </group>
+  </group>;
 }
 
 function CameraRig({ hero, progressRef }) {
@@ -808,14 +790,10 @@ function CameraRig({ hero, progressRef }) {
       camera.lookAt(0, 0, 0);
       zoom = Math.min(size.width / 5.1, size.height / 4.65);
     } else {
-      const next = CAMERA_STOPS.findIndex((stop) => stop.p >= p);
-      const segment = clamp(next < 0 ? CAMERA_STOPS.length - 2 : next - 1, 0, CAMERA_STOPS.length - 2);
-      const span = CAMERA_STOPS[segment + 1].p - CAMERA_STOPS[segment].p;
-      const t = clamp((p - CAMERA_STOPS[segment].p) / span);
-      const sample = (index) => cameraSample(CAMERA_TRACKS[index], segment, t, span);
-      camera.position.set(sample(0), sample(1), sample(2));
-      camera.lookAt(sample(3), sample(4), sample(5));
-      zoom = Math.min(size.width / sample(6), size.height / sample(7));
+      const frame = getJourneyCamera(p);
+      camera.position.set(...frame.position);
+      camera.lookAt(...frame.target);
+      zoom = Math.min(size.width / frame.width, size.height / frame.height);
     }
     if (Math.abs(camera.zoom - zoom) > 0.00001) {
       camera.zoom = zoom;
@@ -888,26 +866,24 @@ function SceneContents({ progress, progressSource, active, hero, reducedMotion, 
   }, -100);
   useFrame((state, delta) => {
     const p = progressRef.current;
-    const delivery = hero ? 0 : smoother(p, 0.755, 0.875);
-    const roadDistance = deliveryDistance(p);
+    const pose = getJourneyPose(p);
+    const delivery = hero ? 0 : smoother(p, 0.78, 0.875);
     const running = activeRef.current && pageVisible.current;
     const heroHover = hero && running && !reducedMotion && hoveredRef.current;
     const targetY = heroHover ? pointer.x * 0.12 - 0.12 : -0.12;
     const targetX = heroHover ? pointer.y * 0.045 : 0;
-    assembly.current.rotation.y = hero ? THREE.MathUtils.damp(assembly.current.rotation.y, targetY, 4, delta) : -0.12 + Math.sin(roadDistance * 0.7) * 0.012 * delivery;
-    assembly.current.rotation.x = hero ? THREE.MathUtils.damp(assembly.current.rotation.x, targetX, 4, delta) : (reducedMotion ? 0 : Math.sin(roadDistance * 1.4) * 0.006 * delivery);
-    assembly.current.position.x = hero ? 0 : -0.6 * smoother(p, 0.76, 0.85) + 1.3 * smoother(p, 0.85, 1);
-    assembly.current.position.y = hero || reducedMotion ? 0 : Math.sin(roadDistance * 6) * 0.004 * delivery;
-    packageGroup.current.position.set(mix(0, -1.12, delivery) + (hero ? 0 : scooterEntry(p) * delivery * 0.5), mix(0, 0.71, delivery), 0);
-    packageGroup.current.scale.setScalar(mix(1, 0.255, delivery));
+    assembly.current.rotation.y = hero ? THREE.MathUtils.damp(assembly.current.rotation.y, targetY, 4, delta) : -0.12;
+    assembly.current.rotation.x = hero ? THREE.MathUtils.damp(assembly.current.rotation.x, targetX, 4, delta) : 0;
+    packageGroup.current.position.set(...(hero ? [0, 0, 0] : pose.packagePosition));
+    packageGroup.current.scale.setScalar(hero ? 1 : pose.packageScale);
     if (road.current) {
-      road.current.visible = p > 0.79;
-      road.current.scale.setScalar(delivery);
+      road.current.visible = p > 0.78;
       road.current.quaternion.copy(assembly.current.quaternion).invert();
       road.current.position.set(-assembly.current.position.x, -1.158 - assembly.current.position.y, 0).applyQuaternion(road.current.quaternion);
     }
-    shadow.current.position.x = assembly.current.position.x;
-    shadow.current.scale.set(mix(1, 0.82, delivery), mix(1, 0.5, delivery), 1);
+    shadow.current.position.x = hero ? 0 : mix(PACKING_POSITION[0], pose.scooterX - 0.4, delivery);
+    shadow.current.position.z = hero ? 0 : mix(PACKING_POSITION[2], 0, delivery);
+    shadow.current.scale.set(hero ? 1 : mix(0.3, 0.82, delivery), hero ? 1 : mix(0.3, 0.5, delivery), 1);
     // Scroll changes schedule one frame. Only active flames and a hovered hero
     // request continuous frames; idle or offscreen story stages use no GPU loop.
     const settlingTilt = hero && (Math.abs(assembly.current.rotation.y - targetY) > 0.0002 || Math.abs(assembly.current.rotation.x - targetX) > 0.0002);
@@ -923,11 +899,11 @@ function SceneContents({ progress, progressSource, active, hero, reducedMotion, 
       <directionalLight position={[-5, 1, -3]} intensity={0.7} color="#f7ae91" />
       <pointLight position={[4, 3, -2]} intensity={8} color="#e5392f" distance={12} decay={2} />
       <group ref={assembly} rotation={[0, -0.12, 0]}>
-        <group ref={packageGroup}>
+        <group ref={packageGroup} name="pizza-package" position={hero ? [0, 0, 0] : PACKING_POSITION} scale={hero ? 1 : PACKAGE_SCALE}>
           <MemoPizza progressRef={progressRef} hero={hero} reducedMotion={reducedMotion} />
           {!hero && <MemoPizzaBox progressRef={progressRef} />}
         </group>
-        {!hero && <><MemoFire progressRef={progressRef} reducedMotion={reducedMotion} /><MemoScooter progressRef={progressRef} reducedMotion={reducedMotion} /><group ref={road} visible={false} position={[0, -1.158, 0]}>
+        {!hero && <><PackingStation progressRef={progressRef} /><group position={PACKING_POSITION} scale={PACKAGE_SCALE}><MemoFire progressRef={progressRef} reducedMotion={reducedMotion} /></group><MemoScooter progressRef={progressRef} reducedMotion={reducedMotion} /><group ref={road} visible={false} position={[0, -1.158, 0]}>
           <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={[7.2, 2.1]} /><meshStandardMaterial color="#343132" transparent opacity={0.24} roughness={1} depthWrite={false} /></mesh>
           {[-2.8, -1.7, -0.6, 0.5, 1.6, 2.7].map((x) => <mesh key={x} position={[x, 0.006, 0.82]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[0.5, 0.03]} /><meshBasicMaterial color="#b5a9a3" transparent opacity={0.35} /></mesh>)}
         </group></>}
