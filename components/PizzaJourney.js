@@ -2,7 +2,8 @@
 
 import { Component, Suspense, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { AnimatePresence, motion, useMotionValueEvent, useReducedMotion, useScroll } from 'motion/react';
+import { AnimatePresence, motion, useMotionValueEvent, useScroll } from 'motion/react';
+import useReducedMotion from '../lib/useHydratedReducedMotion';
 import { ArrowDown, ArrowUpRight } from 'lucide-react';
 
 const PizzaScene = dynamic(() => import('./PizzaScene'), { ssr: false, loading: () => <div className="scene-loading"><span/>WARMING UP THE OVEN</div> });

@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { motion, useMotionValue, useSpring, useScroll, useTransform, useReducedMotion, AnimatePresence } from 'motion/react';
+import { motion, useMotionValue, useSpring, useScroll, useTransform, AnimatePresence } from 'motion/react';
+import useReducedMotion from '../lib/useHydratedReducedMotion';
 import { ArrowUpRight, ArrowDown, ArrowRight, Plus, Minus, X, ShoppingBag, Menu, Flame, Leaf, Clock3, Check, Play, ChevronRight } from 'lucide-react';
 import PizzaJourney from '../components/PizzaJourney';
 
@@ -17,7 +18,7 @@ const ease = [0.22, 1, 0.36, 1];
 
 function Reveal({ children, className = '', delay = 0 }) {
   const reduce = useReducedMotion();
-  return <motion.div className={className} initial={{ opacity: 0, y: reduce ? 0 : 32 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-35px' }} transition={{ duration: .8, delay, ease }}>{children}</motion.div>;
+  return <motion.div className={className} initial={{ opacity: 0, y: reduce ? 0 : 32 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-35px' }} transition={{ duration: reduce ? 0 : .8, delay: reduce ? 0 : delay, ease }}>{children}</motion.div>;
 }
 
 function Brand({ light = false, onClick }) {
@@ -48,7 +49,7 @@ function Hero() {
   return <section className="hero" ref={ref} aria-labelledby="hero-heading">
     <div className="hero-topline"><span className="eyebrow"><span className="tiny-dot"/> THE ART OF A PERFECT PIZZA</span><span className="hero-location">SLOW CRAFT. BOLD CHARACTER.</span></div>
     <div className="hero-grid">
-      <motion.div className="hero-editorial" initial={{ opacity: 0, y: reduce ? 0 : 35 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1.1, ease }}>
+      <motion.div className="hero-editorial" initial={{ opacity: 0, y: reduce ? 0 : 35 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reduce ? 0 : 1.1, ease }}>
         <span className="eyebrow hero-kicker">CRAFTED IN FIRE. FINISHED WITH SOUL.</span>
         <h1 id="hero-heading">Fire. Flour.<br/><em>Obsession.</em></h1>
         <p className="hero-description">A blistered crust. A molten centre. A moment<br className="desktop-break"/> worth slowing down for. This is Pizza Teria.</p>

@@ -68,6 +68,10 @@ try {
   await page.waitForTimeout(900);
   await page.screenshot({ path: 'artifacts/mobile-journey.png' });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  await page.evaluate(({ top, height }) => window.scrollTo({ top: top + (height - innerHeight) * .94, behavior: 'instant' }), mobileStory);
+  await page.waitForTimeout(1000);
+  await page.screenshot({ path: 'artifacts/mobile-delivery.png' });
+  assert.match(await page.locator('.journey-timeline button.active').innerText(), /05\s*Your table/);
   await writeFile('artifacts/browser-errors.json', JSON.stringify(errors, null, 2));
   assert.deepEqual(errors.filter(error => !error.includes('Download the React DevTools')), [], 'Browser must not report runtime or asset errors');
   console.log('PASS: Pizza Teria branding, dark theme, desktop, mobile, menu filters, bag quantity and focus, demo checkout, all 3D stages, reverse scroll, asset loading, no browser errors.');

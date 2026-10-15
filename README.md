@@ -31,3 +31,5 @@ The checkout is a clearly labelled demonstration. It does not process payments, 
 ## Browser verification
 
 `npm run verify` checks the desktop and mobile layouts, filters, shopping bag, demo checkout and forward/reverse 3D stages. It uses installed Microsoft Edge via Playwright and writes screenshots to `artifacts/`.
+
+With the development server running, `node scripts/verify-hydration.mjs` simulates the extension-injected `cz-shortcut-listen` body attribute and checks normal and reduced-motion hydration. Only the body attribute warning is suppressed; descendant hydration checks remain enabled.

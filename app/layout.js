@@ -11,5 +11,7 @@ export const metadata = {
 export const viewport = { themeColor: '#0c0c0c', colorScheme: 'dark' };
 
 export default function RootLayout({ children }) {
-  return <html lang="en"><body>{children}</body></html>;
+  // Browser extensions may add attributes such as cz-shortcut-listen before
+  // React starts. Scope this escape hatch to body; descendant checks stay on.
+  return <html lang="en"><body suppressHydrationWarning>{children}</body></html>;
 }

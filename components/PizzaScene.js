@@ -4,6 +4,7 @@ import { memo, useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
+import DeliveryRider from "./DeliveryRider";
 
 const RED = "#c32e2a";
 const BLACK = "#111111";
@@ -259,6 +260,23 @@ function makeShadowTexture() {
   });
 }
 
+function makeBaseGeometry() {
+  // A thin, rounded bread underside: no straight cylinder wall under the pizza.
+  const profile = [[0, -0.064], [1.5, -0.064], [1.93, -0.05], [2.11, -0.018], [2.115, 0.018], [1.91, 0.036], [0, 0.035]].map(([radius, height]) => new THREE.Vector2(radius, height));
+  const geometry = new THREE.LatheGeometry(profile, 144);
+  const position = geometry.attributes.position;
+  for (let i = 0; i < position.count; i++) {
+    const x = position.getX(i);
+    const z = position.getZ(i);
+    const angle = Math.atan2(z, x);
+    const radial = Math.hypot(x, z) / 2.115;
+    const irregular = (Math.sin(angle * 5 + 0.4) * 0.024 + Math.cos(angle * 9) * 0.019 + Math.sin(angle * 3) * 0.015) * radial;
+    position.setXYZ(i, x * (1 + irregular), position.getY(i) + Math.sin(angle * 7 + 0.5) * 0.006 * radial, z * (1 + irregular));
+  }
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
 function makeCrustGeometry() {
   const around = 180;
   const tube = 22;
@@ -267,13 +285,16 @@ function makeCrustGeometry() {
   const indices = [];
   for (let i = 0; i <= around; i++) {
     const a = (i / around) * TAU;
-    const center = 2.005 + Math.sin(a * 5) * 0.025 + Math.cos(a * 9 + 0.8) * 0.021;
-    const puff = 0.225 + Math.sin(a * 7 + 1) * 0.03 + Math.cos(a * 11) * 0.017;
+    const center = 2.005 + Math.sin(a * 5) * 0.033 + Math.cos(a * 9 + 0.8) * 0.025 + Math.sin(a * 3 + 0.3) * 0.02;
+    const puff = 0.205 + Math.sin(a * 7 + 1) * 0.034 + Math.cos(a * 11) * 0.022 + Math.sin(a * 17) * 0.012;
+    const verticalPuff = puff * (0.67 + Math.sin(a * 4 + 0.6) * 0.11);
+    const centerHeight = 0.075 + Math.sin(a * 3) * 0.012 + Math.cos(a * 8) * 0.009;
     for (let j = 0; j <= tube; j++) {
       const b = (j / tube) * TAU;
-      const surface = 1 + Math.sin(a * 29 + b * 5) * 0.025 + Math.cos(a * 41 - b * 3) * 0.018;
+      const surface = 1 + Math.sin(a * 29 + b * 5) * 0.034 + Math.cos(a * 41 - b * 3) * 0.022;
       const radius = center + Math.cos(b) * puff * surface;
-      positions.push(Math.cos(a) * radius, 0.085 + Math.sin(b) * puff * 0.94 * surface, Math.sin(a) * radius);
+      const height = Math.max(-0.065 + Math.sin(a * 9) * 0.006, centerHeight + Math.sin(b) * verticalPuff * surface);
+      positions.push(Math.cos(a) * radius, height, Math.sin(a) * radius);
       uvs.push(i / around, j / tube);
       if (i < around && j < tube) {
         const index = i * (tube + 1) + j;
@@ -290,18 +311,18 @@ function makeCrustGeometry() {
 }
 
 function makeSurfaceGeometry() {
-  const rings = 30;
-  const sectors = 144;
+  const rings = 46;
+  const sectors = 180;
   const positions = [];
   const uvs = [];
   const indices = [];
   for (let ring = 0; ring <= rings; ring++) {
     for (let i = 0; i <= sectors; i++) {
       const a = (i / sectors) * TAU;
-      const r = (ring / rings) * (1.9 + Math.sin(a * 5) * 0.023);
+      const r = (ring / rings) * (1.9 + Math.sin(a * 5) * 0.032 + Math.cos(a * 9) * 0.017);
       const x = Math.cos(a) * r;
       const z = Math.sin(a) * r;
-      positions.push(x, 0.115 + Math.sin(x * 8 + z * 3) * 0.017 + Math.cos(z * 11 - x * 4) * 0.012 + Math.sin(x * 17 - z * 21) * 0.004, z);
+      positions.push(x, 0.082 + Math.sin(x * 5 + z * 3) * 0.009 + Math.cos(z * 8 - x * 4) * 0.008 + Math.sin(x * 17 - z * 21) * 0.002, z);
       uvs.push(x / 3.8 + 0.5, z / 3.8 + 0.5);
       if (ring < rings && i < sectors) {
         const index = ring * (sectors + 1) + i;
@@ -380,16 +401,21 @@ function Tomato({ position, rotation }) {
 
 function Pizza({ progressRef, hero, reducedMotion }) {
   const group = useRef();
+  const baseMaterial = useRef();
   const crustMaterial = useRef();
   const cheeseMaterial = useRef();
   const ingredients = useRef();
   const ingredientMaterials = useRef([]);
   const photoReady = useRef(false);
+  const relief = useRef(null);
+  const lastBake = useRef(-1);
   const falling = useRef([]);
   const invalidate = useThree((state) => state.invalidate);
-  const textures = useMemo(() => ({ cooked: makeDoughTexture(), raw: makeDoughTexture(true), cheese: makeCheeseTexture(), finished: makeCheeseTexture(), leaf: makeLeafTexture() }), []);
+  const textures = useMemo(() => ({ cooked: makeDoughTexture(), bread: makeDoughTexture(), raw: makeDoughTexture(true), cheese: makeCheeseTexture(), finished: makeCheeseTexture(), leaf: makeLeafTexture() }), []);
+  const baseGeometry = useMemo(makeBaseGeometry, []);
   const crustGeometry = useMemo(makeCrustGeometry, []);
   const surfaceGeometry = useMemo(makeSurfaceGeometry, []);
+  const surfaceHeights = useMemo(() => Float32Array.from({ length: surfaceGeometry.attributes.position.count }, (_, index) => surfaceGeometry.attributes.position.getY(index)), [surfaceGeometry]);
   const leafGeometry = useMemo(makeLeafGeometry, []);
   const tomatoes = useMemo(() => [
     [-1.02, 0.17, -0.68], [0.25, 0.16, -1.12], [1.05, 0.17, -0.2], [0.73, 0.17, 0.93], [-0.55, 0.17, 1.03], [-1.23, 0.17, 0.37], [0.06, 0.17, 0.1],
@@ -421,11 +447,15 @@ function Pizza({ progressRef, hero, reducedMotion }) {
       const pixels = context.getImageData(0, 0, source.width, source.height).data;
       const output = textures.cooked.image;
       const target = output.getContext("2d");
+      const toastedBread = target.getImageData(0, 0, output.width, output.height).data;
       const unwrapped = target.createImageData(output.width, output.height);
       const centerX = source.width / 2;
       const centerY = source.height / 2;
       for (let y = 0; y < output.height; y++) {
         const tubeAngle = (1 - y / output.height) * TAU;
+        // A photograph is appropriate on the crown, where the dough faces up.
+        // The vertical sides retain toasted bread rather than stretched pixels.
+        const photoWeight = smooth(Math.sin(tubeAngle), 0.12, 0.66);
         const radius = ((2.005 + Math.cos(tubeAngle) * 0.225) / 2.25) * source.width * 0.475;
         for (let x = 0; x < output.width; x++) {
           const angle = (x / output.width) * TAU;
@@ -440,9 +470,9 @@ function Pizza({ progressRef, hero, reducedMotion }) {
             from = (sy * source.width + sx) * 4;
           }
           const to = (y * output.width + x) * 4;
-          unwrapped.data[to] = pixels[from];
-          unwrapped.data[to + 1] = pixels[from + 1];
-          unwrapped.data[to + 2] = pixels[from + 2];
+          unwrapped.data[to] = mix(toastedBread[to], pixels[from], photoWeight);
+          unwrapped.data[to + 1] = mix(toastedBread[to + 1], pixels[from + 1], photoWeight);
+          unwrapped.data[to + 2] = mix(toastedBread[to + 2], pixels[from + 2], photoWeight);
           unwrapped.data[to + 3] = 255;
         }
       }
@@ -453,6 +483,39 @@ function Pizza({ progressRef, hero, reducedMotion }) {
       const crop = source.width * 0.475 * (1.9 / 2.25);
       topContext.drawImage(source, centerX - crop, centerY - crop, crop * 2, crop * 2, 0, 0, top.width, top.height);
       textures.finished.needsUpdate = true;
+      const topPixels = topContext.getImageData(0, 0, top.width, top.height).data;
+      const sample = (x, z) => {
+        const px = clamp(Math.round((x / 3.8 + 0.5) * (top.width - 1)), 0, top.width - 1);
+        const py = clamp(Math.round((0.5 - z / 3.8) * (top.height - 1)), 0, top.height - 1);
+        const index = (py * top.width + px) * 4;
+        return [topPixels[index], topPixels[index + 1], topPixels[index + 2]];
+      };
+      const cheeseMask = ([r, g, b]) => clamp((g - 95) / 105) * clamp((r - g + 18) / 42) * clamp((g - b) / 35);
+      const random = randomGenerator(536);
+      const blisters = [];
+      for (let trial = 0; trial < 150 && blisters.length < 22; trial++) {
+        const x = (random() * 2 - 1) * 1.65;
+        const z = (random() * 2 - 1) * 1.65;
+        if (Math.hypot(x, z) < 1.72 && cheeseMask(sample(x, z)) > 0.55) blisters.push({ x, z, radius: 0.055 + random() * 0.055, height: 0.009 + random() * 0.014 });
+      }
+      const vertices = surfaceGeometry.attributes.position;
+      const offsets = new Float32Array(vertices.count);
+      for (let i = 0; i < vertices.count; i++) {
+        const x = vertices.getX(i);
+        const z = vertices.getZ(i);
+        const [r, g, b] = sample(x, z);
+        const cheese = cheeseMask([r, g, b]);
+        const sauce = clamp((r - g - 55) / 95);
+        const leaf = g > r * 0.9 && g > b * 1.5 ? 1 : 0;
+        let height = cheese * 0.032 + sauce * 0.012 + leaf * 0.016;
+        for (const blister of blisters) {
+          const distance = (x - blister.x) ** 2 + (z - blister.z) ** 2;
+          if (distance < blister.radius ** 2 * 5) height += blister.height * Math.exp(-distance / (blister.radius ** 2));
+        }
+        offsets[i] = height;
+      }
+      relief.current = offsets;
+      lastBake.current = -1;
       photoReady.current = true;
       invalidate();
     };
@@ -461,19 +524,27 @@ function Pizza({ progressRef, hero, reducedMotion }) {
     };
     reference.src = "/images/pizza-signature.webp";
     return () => { active = false; reference.onload = null; reference.onerror = null; };
-  }, [textures, invalidate]);
+  }, [textures, surfaceGeometry, invalidate]);
 
   useEffect(() => () => {
     Object.values(textures).forEach((texture) => texture.dispose());
+    baseGeometry.dispose();
     crustGeometry.dispose();
     surfaceGeometry.dispose();
     leafGeometry.dispose();
-  }, [textures, crustGeometry, surfaceGeometry, leafGeometry]);
+  }, [textures, baseGeometry, crustGeometry, surfaceGeometry, leafGeometry]);
 
   useFrame(({ clock }) => {
     const p = hero ? 0.48 : progressRef.current;
     const sauce = hero ? 1 : smooth(p, 0.035, 0.16);
     const baked = hero ? 1 : smooth(p, 0.25, 0.4);
+    if (relief.current && Math.abs(lastBake.current - baked) > 0.0001) {
+      const vertices = surfaceGeometry.attributes.position;
+      for (let i = 0; i < vertices.count; i++) vertices.setY(i, surfaceHeights[i] + relief.current[i] * baked);
+      vertices.needsUpdate = true;
+      surfaceGeometry.computeVertexNormals();
+      lastBake.current = baked;
+    }
     const finish = photoReady.current ? (hero ? 1 : smooth(p, 0.27, 0.39)) : 0;
     if (cheeseMaterial.current) cheeseMaterial.current.opacity = sauce;
     const topShader = cheeseMaterial.current?.userData.shader;
@@ -481,6 +552,8 @@ function Pizza({ progressRef, hero, reducedMotion }) {
     ingredientMaterials.current.forEach((material) => { material.opacity = 1 - finish; material.depthWrite = finish < 0.02; });
     const shader = crustMaterial.current?.userData.shader;
     if (shader) shader.uniforms.uBake.value = baked;
+    const undersideShader = baseMaterial.current?.userData.shader;
+    if (undersideShader) undersideShader.uniforms.uBake.value = baked;
     if (group.current) {
       group.current.position.y = hero ? Math.sin(reducedMotion ? 0 : clock.elapsedTime * 0.5) * 0.025 : mix(0.2, -0.12, smooth(p, 0.53, 0.67));
       group.current.rotation.y = hero ? 0.18 : mix(-0.3, 0.16, smooth(p, 0, 0.48));
@@ -500,12 +573,16 @@ function Pizza({ progressRef, hero, reducedMotion }) {
 
   return (
     <group ref={group}>
-      <mesh position={[0, -0.05, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[2.01, 1.98, 0.18, 96]} />
-        <meshStandardMaterial color="#d8ab70" roughness={0.86} map={textures.raw} />
+      <mesh geometry={baseGeometry} castShadow receiveShadow>
+        <meshStandardMaterial ref={baseMaterial} map={textures.bread} roughness={0.94} bumpMap={textures.bread} bumpScale={0.008} onBeforeCompile={(shader) => {
+          shader.uniforms.uRawMap = { value: textures.raw };
+          shader.uniforms.uBake = { value: hero ? 1 : smooth(progressRef.current, 0.25, 0.4) };
+          shader.fragmentShader = "uniform sampler2D uRawMap;\nuniform float uBake;\n" + shader.fragmentShader.replace("#include <map_fragment>", "#ifdef USE_MAP\nvec4 rawColor = texture2D(uRawMap, vMapUv);\nvec4 breadColor = texture2D(map, vMapUv);\ndiffuseColor *= mix(rawColor, breadColor, uBake);\n#endif");
+          if (baseMaterial.current) baseMaterial.current.userData.shader = shader;
+        }} />
       </mesh>
       <mesh geometry={crustGeometry} castShadow receiveShadow>
-        <meshPhysicalMaterial ref={crustMaterial} map={textures.cooked} bumpMap={textures.cooked} bumpScale={0.025} roughness={0.63} clearcoat={0.08} clearcoatRoughness={0.6} onBeforeCompile={(shader) => {
+        <meshPhysicalMaterial ref={crustMaterial} map={textures.cooked} bumpMap={textures.cooked} bumpScale={0.012} roughness={0.75} clearcoat={0.035} clearcoatRoughness={0.6} onBeforeCompile={(shader) => {
           shader.uniforms.uRawMap = { value: textures.raw };
           shader.uniforms.uBake = { value: hero ? 1 : smooth(progressRef.current, 0.25, 0.4) };
           shader.fragmentShader = "uniform sampler2D uRawMap;\nuniform float uBake;\n" + shader.fragmentShader.replace("#include <map_fragment>", "#ifdef USE_MAP\nvec4 rawColor = texture2D(uRawMap, vMapUv);\nvec4 cookedColor = texture2D(map, vMapUv);\ndiffuseColor *= mix(rawColor, cookedColor, uBake);\n#endif");
@@ -513,7 +590,7 @@ function Pizza({ progressRef, hero, reducedMotion }) {
         }} />
       </mesh>
       <mesh geometry={surfaceGeometry} receiveShadow>
-        <meshPhysicalMaterial ref={cheeseMaterial} map={textures.cheese} bumpMap={textures.finished} bumpScale={0.022} roughness={0.47} clearcoat={0.21} clearcoatRoughness={0.28} transparent opacity={hero ? 1 : 0} side={THREE.DoubleSide} polygonOffset polygonOffsetFactor={-1} onBeforeCompile={(shader) => {
+        <meshPhysicalMaterial ref={cheeseMaterial} map={textures.cheese} bumpMap={textures.finished} bumpScale={0.01} roughness={0.53} clearcoat={0.12} clearcoatRoughness={0.32} transparent opacity={hero ? 1 : 0} side={THREE.DoubleSide} polygonOffset polygonOffsetFactor={-1} onBeforeCompile={(shader) => {
           shader.uniforms.uFinishedMap = { value: textures.finished };
           shader.uniforms.uFinish = { value: photoReady.current ? (hero ? 1 : smooth(progressRef.current, 0.27, 0.39)) : 0 };
           shader.fragmentShader = "uniform sampler2D uFinishedMap;\nuniform float uFinish;\n" + shader.fragmentShader.replace("#include <map_fragment>", "#ifdef USE_MAP\nvec4 ingredientColor = texture2D(map, vMapUv);\nvec4 finishedColor = texture2D(uFinishedMap, vMapUv);\ndiffuseColor *= mix(ingredientColor, finishedColor, uFinish);\n#endif");
@@ -623,7 +700,7 @@ function Wheel({ position, wheelRef }) {
   );
 }
 
-function Scooter({ progressRef }) {
+function Scooter({ progressRef, reducedMotion }) {
   const group = useRef();
   const wheels = useRef([]);
   useFrame(() => {
@@ -632,10 +709,12 @@ function Scooter({ progressRef }) {
     group.current.visible = reveal > 0.002;
     group.current.scale.setScalar(reveal);
     group.current.position.y = -(1 - reveal) * 1.4;
-    wheels.current.forEach((wheel) => { if (wheel) wheel.rotation.z = -(p - 0.76) * 25; });
+    const distance = 1.3 * smooth(p, 0.85, 1);
+    wheels.current.forEach((wheel) => { if (wheel) wheel.rotation.z = -distance / 0.45; });
   });
   return (
     <group ref={group} visible={false}>
+      <DeliveryRider progressRef={progressRef} reducedMotion={reducedMotion} />
       <Wheel position={[-1.1, -0.7, 0]} wheelRef={(element) => { wheels.current[0] = element; }} />
       <Wheel position={[1.12, -0.7, 0]} wheelRef={(element) => { wheels.current[1] = element; }} />
       <mesh position={[-0.76, -0.08, 0]} scale={[0.87, 0.47, 0.37]} castShadow><sphereGeometry args={[1, 32, 24]} /><meshStandardMaterial color={RED} metalness={0.18} roughness={0.3} /></mesh>
@@ -666,8 +745,8 @@ const CAMERA_STOPS = [
   { p: 0.4, position: [3.8, 6.1, 8.2], target: [0, 0.18, 0], width: 6.15, height: 5.5 },
   { p: 0.56, position: [5.2, 8.2, 9.5], target: [0, 1.0, -0.3], width: 8.1, height: 7.1 },
   { p: 0.72, position: [4.4, 8.1, 8.6], target: [0, 0.45, 0], width: 7.2, height: 6.1 },
-  { p: 0.87, position: [4.4, 4.3, 8.4], target: [0, 0.25, 0], width: 5.8, height: 4.5 },
-  { p: 1, position: [3.2, 3.8, 8.6], target: [0.25, 0.25, 0], width: 5.8, height: 4.4 },
+  { p: 0.87, position: [4.4, 4.8, 8.4], target: [0, 0.8, 0], width: 6.3, height: 5.7 },
+  { p: 1, position: [3.2, 4.6, 8.6], target: [0.25, 0.8, 0], width: 6.3, height: 5.7 },
 ];
 
 function CameraRig({ hero, progressRef }) {
@@ -714,41 +793,44 @@ function SceneContents({ progress, hero, reducedMotion, hoveredRef }) {
   useFrame((state, delta) => {
     const p = progressRef.current;
     const delivery = hero ? 0 : smooth(p, 0.755, 0.86);
+    const roadDistance = 1.3 * smooth(p, 0.85, 1);
     const heroHover = hero && !reducedMotion && hoveredRef.current;
     const targetY = heroHover ? pointer.x * 0.12 - 0.12 : -0.12;
     const targetX = heroHover ? pointer.y * 0.045 : 0;
-    assembly.current.rotation.y = THREE.MathUtils.damp(assembly.current.rotation.y, targetY, 4, delta);
-    assembly.current.rotation.x = THREE.MathUtils.damp(assembly.current.rotation.x, targetX, 4, delta);
+    assembly.current.rotation.y = hero ? THREE.MathUtils.damp(assembly.current.rotation.y, targetY, 4, delta) : -0.12 + Math.sin(roadDistance * 1.6) * 0.025 * delivery;
+    assembly.current.rotation.x = hero ? THREE.MathUtils.damp(assembly.current.rotation.x, targetX, 4, delta) : (reducedMotion ? 0 : Math.sin(roadDistance * 3) * 0.012 * delivery);
     assembly.current.position.x = hero ? 0 : -0.6 * smooth(p, 0.76, 0.85) + 1.3 * smooth(p, 0.85, 1);
+    assembly.current.position.y = hero || reducedMotion ? 0 : Math.sin(roadDistance * 10) * 0.009 * delivery;
     packageGroup.current.position.set(mix(0, -1.12, delivery), mix(0, 0.71, delivery), 0);
     packageGroup.current.scale.setScalar(mix(1, 0.255, delivery));
     if (road.current) {
       road.current.visible = p > 0.79;
       road.current.scale.setScalar(delivery);
-      road.current.position.x = -assembly.current.position.x;
+      road.current.quaternion.copy(assembly.current.quaternion).invert();
+      road.current.position.set(-assembly.current.position.x, -1.158 - assembly.current.position.y, 0).applyQuaternion(road.current.quaternion);
     }
     shadow.current.position.x = assembly.current.position.x;
     shadow.current.scale.set(mix(1, 0.82, delivery), mix(1, 0.5, delivery), 1);
     // Scroll changes schedule one frame. Only active flames and a hovered hero
     // request continuous frames; idle or offscreen story stages use no GPU loop.
-    const settlingTilt = Math.abs(assembly.current.rotation.y - targetY) > 0.0002 || Math.abs(assembly.current.rotation.x - targetX) > 0.0002;
+    const settlingTilt = hero && (Math.abs(assembly.current.rotation.y - targetY) > 0.0002 || Math.abs(assembly.current.rotation.x - targetX) > 0.0002);
     if (heroHover || settlingTilt || (!reducedMotion && p > 0.26 && p < 0.54)) state.invalidate();
   });
   return (
     <>
       <CameraRig hero={hero} progressRef={progressRef} />
-      <ambientLight intensity={0.52} />
-      <hemisphereLight args={["#fff0dc", "#221b18", 0.9]} />
-      <directionalLight position={[-3.5, 7, 5]} intensity={3.15} color="#fff0da" castShadow shadow-mapSize={[1024, 1024]} shadow-camera-near={0.1} shadow-camera-far={24} shadow-camera-left={-7} shadow-camera-right={7} shadow-camera-top={7} shadow-camera-bottom={-7} shadow-bias={-0.0006} shadow-normalBias={0.03} />
-      <directionalLight position={[4, 3, -5]} intensity={2.15} color="#d8dce4" />
+      <ambientLight intensity={0.4} />
+      <hemisphereLight args={["#fff3e4", "#221b18", 0.72]} />
+      <directionalLight position={[-3.5, 7, 5]} intensity={2.5} color="#fff1e6" castShadow shadow-mapSize={[1024, 1024]} shadow-camera-near={0.1} shadow-camera-far={24} shadow-camera-left={-7} shadow-camera-right={7} shadow-camera-top={7} shadow-camera-bottom={-7} shadow-bias={-0.0006} shadow-normalBias={0.03} />
+      <directionalLight position={[4, 3, -5]} intensity={1.5} color="#d8dce4" />
       <directionalLight position={[-5, 1, -3]} intensity={0.7} color="#f7ae91" />
-      <pointLight position={[4, 3, -2]} intensity={14} color="#e5392f" distance={12} decay={2} />
+      <pointLight position={[4, 3, -2]} intensity={8} color="#e5392f" distance={12} decay={2} />
       <group ref={assembly} rotation={[0, -0.12, 0]}>
         <group ref={packageGroup}>
           <MemoPizza progressRef={progressRef} hero={hero} reducedMotion={reducedMotion} />
           {!hero && <MemoPizzaBox progressRef={progressRef} />}
         </group>
-        {!hero && <><MemoFire progressRef={progressRef} reducedMotion={reducedMotion} /><MemoScooter progressRef={progressRef} /><group ref={road} visible={false} position={[0, -1.158, 0]}>
+        {!hero && <><MemoFire progressRef={progressRef} reducedMotion={reducedMotion} /><MemoScooter progressRef={progressRef} reducedMotion={reducedMotion} /><group ref={road} visible={false} position={[0, -1.158, 0]}>
           <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={[7.2, 2.1]} /><meshStandardMaterial color="#343132" transparent opacity={0.24} roughness={1} depthWrite={false} /></mesh>
           {[-2.8, -1.7, -0.6, 0.5, 1.6, 2.7].map((x) => <mesh key={x} position={[x, 0.006, 0.82]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[0.5, 0.03]} /><meshBasicMaterial color="#b5a9a3" transparent opacity={0.35} /></mesh>)}
         </group></>}
