@@ -15,7 +15,20 @@ const smooth = (p, from, to) => {
   const t = clamp((p - from) / (to - from));
   return t * t * (3 - 2 * t);
 };
+const smoother = (p, from, to) => {
+  const t = clamp((p - from) / (to - from));
+  return t * t * t * (t * (t * 6 - 15) + 10);
+};
 const mix = THREE.MathUtils.lerp;
+const readProgress = (source, fallback = 0) => {
+  const value = source?.get ? source.get() : fallback;
+  return clamp(Number.isFinite(value) ? value : 0);
+};
+const scooterEntry = (p) => -5.2 * (1 - smoother(p, 0.755, 0.875));
+const deliveryDistance = (p) => scooterEntry(p) + 5.2 - 0.6 * smoother(p, 0.76, 0.85) + 1.3 * smoother(p, 0.85, 1);
+const CANVAS_CAMERA = { position: [0, 7, 6], near: 0.1, far: 50, zoom: 85 };
+const CANVAS_GL = { alpha: true, antialias: true, powerPreference: "high-performance" };
+const CANVAS_DPR = [1, 1.5];
 
 function randomGenerator(seed = 721) {
   let value = seed;
@@ -555,7 +568,7 @@ function Pizza({ progressRef, hero, reducedMotion }) {
     const undersideShader = baseMaterial.current?.userData.shader;
     if (undersideShader) undersideShader.uniforms.uBake.value = baked;
     if (group.current) {
-      group.current.position.y = hero ? Math.sin(reducedMotion ? 0 : clock.elapsedTime * 0.5) * 0.025 : mix(0.2, -0.12, smooth(p, 0.53, 0.67));
+      group.current.position.y = hero ? Math.sin(reducedMotion ? 0 : clock.elapsedTime * 0.5) * 0.015 : mix(0.2, -0.12, smoother(p, 0.515, 0.665));
       group.current.rotation.y = hero ? 0.18 : mix(-0.3, 0.16, smooth(p, 0, 0.48));
     }
     falling.current.forEach((item, index) => {
@@ -614,11 +627,11 @@ function PizzaBox({ progressRef }) {
   useEffect(() => () => { brandTexture.dispose(); sideTexture.dispose(); innerTexture.dispose(); }, [brandTexture, sideTexture, innerTexture]);
   useFrame(() => {
     const p = progressRef.current;
-    const appear = smooth(p, 0.465, 0.57);
+    const appear = smoother(p, 0.46, 0.575);
     group.current.visible = appear > 0.002;
-    group.current.scale.setScalar(0.86 + appear * 0.14);
-    group.current.position.y = -(1 - appear) * 1.6;
-    lid.current.rotation.x = mix(-2.02, 0, smooth(p, 0.58, 0.755));
+    group.current.scale.setScalar(1);
+    group.current.position.y = -(1 - appear) * 1.45;
+    lid.current.rotation.x = mix(-2.02, 0, smoother(p, 0.59, 0.765));
   });
   return (
     <group ref={group} visible={false}>
@@ -705,11 +718,10 @@ function Scooter({ progressRef, reducedMotion }) {
   const wheels = useRef([]);
   useFrame(() => {
     const p = progressRef.current;
-    const reveal = smooth(p, 0.76, 0.855);
-    group.current.visible = reveal > 0.002;
-    group.current.scale.setScalar(reveal);
-    group.current.position.y = -(1 - reveal) * 1.4;
-    const distance = 1.3 * smooth(p, 0.85, 1);
+    group.current.visible = p > 0.755;
+    group.current.scale.setScalar(1);
+    group.current.position.set(scooterEntry(p), 0, 0);
+    const distance = deliveryDistance(p);
     wheels.current.forEach((wheel) => { if (wheel) wheel.rotation.z = -distance / 0.45; });
   });
   return (
@@ -749,25 +761,66 @@ const CAMERA_STOPS = [
   { p: 1, position: [3.2, 4.6, 8.6], target: [0.25, 0.8, 0], width: 6.3, height: 5.7 },
 ];
 
+function cameraTrack(values) {
+  const slopes = values.slice(1).map((value, index) => (value - values[index]) / (CAMERA_STOPS[index + 1].p - CAMERA_STOPS[index].p));
+  const tangents = values.map((_, index) => {
+    if (index === 0) return slopes[0];
+    if (index === values.length - 1) return slopes[slopes.length - 1];
+    const before = slopes[index - 1];
+    const after = slopes[index];
+    if (before * after <= 0) return 0;
+    const h0 = CAMERA_STOPS[index].p - CAMERA_STOPS[index - 1].p;
+    const h1 = CAMERA_STOPS[index + 1].p - CAMERA_STOPS[index].p;
+    const w0 = 2 * h1 + h0;
+    const w1 = h1 + 2 * h0;
+    return (w0 + w1) / (w0 / before + w1 / after);
+  });
+  return { values, tangents };
+}
+
+const CAMERA_TRACKS = [
+  ...[0, 1, 2].map((axis) => cameraTrack(CAMERA_STOPS.map((stop) => stop.position[axis]))),
+  ...[0, 1, 2].map((axis) => cameraTrack(CAMERA_STOPS.map((stop) => stop.target[axis]))),
+  cameraTrack(CAMERA_STOPS.map((stop) => stop.width)),
+  cameraTrack(CAMERA_STOPS.map((stop) => stop.height)),
+];
+
+function cameraSample(track, segment, t, span) {
+  const t2 = t * t;
+  const t3 = t2 * t;
+  const a = track.values[segment];
+  const b = track.values[segment + 1];
+  const value = (2 * t3 - 3 * t2 + 1) * a + (t3 - 2 * t2 + t) * span * track.tangents[segment] + (-2 * t3 + 3 * t2) * b + (t3 - t2) * span * track.tangents[segment + 1];
+  return clamp(value, Math.min(a, b), Math.max(a, b));
+}
+
 function CameraRig({ hero, progressRef }) {
   const { camera, size, invalidate } = useThree();
+  const last = useRef({ progress: NaN, width: 0, height: 0, hero: null, camera: null });
   useEffect(() => { invalidate(); }, [size, invalidate]);
   useFrame(() => {
     const p = progressRef.current;
+    if (p === last.current.progress && size.width === last.current.width && size.height === last.current.height && hero === last.current.hero && camera === last.current.camera) return;
+    last.current = { progress: p, width: size.width, height: size.height, hero, camera };
+    let zoom;
     if (hero) {
       camera.position.set(0.1, 8.4, 4.4);
       camera.lookAt(0, 0, 0);
-      camera.zoom = Math.min(size.width / 5.1, size.height / 4.65);
+      zoom = Math.min(size.width / 5.1, size.height / 4.65);
     } else {
       const next = CAMERA_STOPS.findIndex((stop) => stop.p >= p);
-      const end = CAMERA_STOPS[next < 0 ? CAMERA_STOPS.length - 1 : next];
-      const start = CAMERA_STOPS[Math.max(0, next < 0 ? CAMERA_STOPS.length - 2 : next - 1)];
-      const t = start === end ? 0 : smooth(p, start.p, end.p);
-      camera.position.set(...start.position.map((value, index) => mix(value, end.position[index], t)));
-      camera.lookAt(...start.target.map((value, index) => mix(value, end.target[index], t)));
-      camera.zoom = Math.min(size.width / mix(start.width, end.width, t), size.height / mix(start.height, end.height, t));
+      const segment = clamp(next < 0 ? CAMERA_STOPS.length - 2 : next - 1, 0, CAMERA_STOPS.length - 2);
+      const span = CAMERA_STOPS[segment + 1].p - CAMERA_STOPS[segment].p;
+      const t = clamp((p - CAMERA_STOPS[segment].p) / span);
+      const sample = (index) => cameraSample(CAMERA_TRACKS[index], segment, t, span);
+      camera.position.set(sample(0), sample(1), sample(2));
+      camera.lookAt(sample(3), sample(4), sample(5));
+      zoom = Math.min(size.width / sample(6), size.height / sample(7));
     }
-    camera.updateProjectionMatrix();
+    if (Math.abs(camera.zoom - zoom) > 0.00001) {
+      camera.zoom = zoom;
+      camera.updateProjectionMatrix();
+    }
   });
   return null;
 }
@@ -777,8 +830,12 @@ const MemoPizzaBox = memo(PizzaBox);
 const MemoFire = memo(Fire);
 const MemoScooter = memo(Scooter);
 
-function SceneContents({ progress, hero, reducedMotion, hoveredRef }) {
-  const progressRef = useRef(progress);
+function SceneContents({ progress, progressSource, active, hero, reducedMotion, hoveredRef }) {
+  const progressRef = useRef(readProgress(progressSource, progress));
+  const fallbackRef = useRef(progress);
+  const activeRef = useRef(active);
+  const pageVisible = useRef(true);
+  const smoothingActive = useRef(false);
   const assembly = useRef();
   const packageGroup = useRef();
   const road = useRef();
@@ -787,21 +844,61 @@ function SceneContents({ progress, hero, reducedMotion, hoveredRef }) {
   const shadowTexture = useMemo(makeShadowTexture, []);
   useEffect(() => () => shadowTexture.dispose(), [shadowTexture]);
   useEffect(() => {
-    progressRef.current = clamp(Number.isFinite(progress) ? progress : 0);
-    invalidate();
+    fallbackRef.current = progress;
+    if (activeRef.current && pageVisible.current) invalidate();
   }, [progress, invalidate]);
+  useEffect(() => {
+    activeRef.current = active;
+    if (active && pageVisible.current) invalidate();
+  }, [active, invalidate]);
+  useEffect(() => {
+    const update = () => { if (activeRef.current && pageVisible.current) invalidate(); };
+    const unsubscribe = progressSource?.on?.("change", update);
+    update();
+    return typeof unsubscribe === "function" ? unsubscribe : undefined;
+  }, [progressSource, invalidate]);
+  useEffect(() => {
+    const update = () => {
+      pageVisible.current = document.visibilityState !== "hidden";
+      if (pageVisible.current && activeRef.current) invalidate();
+    };
+    update();
+    document.addEventListener("visibilitychange", update);
+    return () => document.removeEventListener("visibilitychange", update);
+  }, [invalidate]);
+  // This negative priority always runs before camera, pizza, box and rider frames.
+  // There is one shared clock for the whole story and no React scroll updates.
+  useFrame((state, delta) => {
+    if (!activeRef.current || !pageVisible.current) {
+      smoothingActive.current = false;
+      return;
+    }
+    const target = readProgress(progressSource, fallbackRef.current);
+    const difference = target - progressRef.current;
+    if (!progressSource || reducedMotion || Math.abs(difference) < 0.00001) {
+      progressRef.current = target;
+      smoothingActive.current = false;
+      return;
+    }
+    // A demand-loop wakeup must not count several idle seconds as one frame.
+    const step = smoothingActive.current ? Math.min(Math.max(delta, 0.001), 0.5) : Math.min(Math.max(delta, 0.001), 1 / 60);
+    smoothingActive.current = true;
+    progressRef.current += difference * (1 - Math.exp(-step / 0.12));
+    state.invalidate();
+  }, -100);
   useFrame((state, delta) => {
     const p = progressRef.current;
-    const delivery = hero ? 0 : smooth(p, 0.755, 0.86);
-    const roadDistance = 1.3 * smooth(p, 0.85, 1);
-    const heroHover = hero && !reducedMotion && hoveredRef.current;
+    const delivery = hero ? 0 : smoother(p, 0.755, 0.875);
+    const roadDistance = deliveryDistance(p);
+    const running = activeRef.current && pageVisible.current;
+    const heroHover = hero && running && !reducedMotion && hoveredRef.current;
     const targetY = heroHover ? pointer.x * 0.12 - 0.12 : -0.12;
     const targetX = heroHover ? pointer.y * 0.045 : 0;
-    assembly.current.rotation.y = hero ? THREE.MathUtils.damp(assembly.current.rotation.y, targetY, 4, delta) : -0.12 + Math.sin(roadDistance * 1.6) * 0.025 * delivery;
-    assembly.current.rotation.x = hero ? THREE.MathUtils.damp(assembly.current.rotation.x, targetX, 4, delta) : (reducedMotion ? 0 : Math.sin(roadDistance * 3) * 0.012 * delivery);
-    assembly.current.position.x = hero ? 0 : -0.6 * smooth(p, 0.76, 0.85) + 1.3 * smooth(p, 0.85, 1);
-    assembly.current.position.y = hero || reducedMotion ? 0 : Math.sin(roadDistance * 10) * 0.009 * delivery;
-    packageGroup.current.position.set(mix(0, -1.12, delivery), mix(0, 0.71, delivery), 0);
+    assembly.current.rotation.y = hero ? THREE.MathUtils.damp(assembly.current.rotation.y, targetY, 4, delta) : -0.12 + Math.sin(roadDistance * 0.7) * 0.012 * delivery;
+    assembly.current.rotation.x = hero ? THREE.MathUtils.damp(assembly.current.rotation.x, targetX, 4, delta) : (reducedMotion ? 0 : Math.sin(roadDistance * 1.4) * 0.006 * delivery);
+    assembly.current.position.x = hero ? 0 : -0.6 * smoother(p, 0.76, 0.85) + 1.3 * smoother(p, 0.85, 1);
+    assembly.current.position.y = hero || reducedMotion ? 0 : Math.sin(roadDistance * 6) * 0.004 * delivery;
+    packageGroup.current.position.set(mix(0, -1.12, delivery) + (hero ? 0 : scooterEntry(p) * delivery * 0.5), mix(0, 0.71, delivery), 0);
     packageGroup.current.scale.setScalar(mix(1, 0.255, delivery));
     if (road.current) {
       road.current.visible = p > 0.79;
@@ -814,7 +911,7 @@ function SceneContents({ progress, hero, reducedMotion, hoveredRef }) {
     // Scroll changes schedule one frame. Only active flames and a hovered hero
     // request continuous frames; idle or offscreen story stages use no GPU loop.
     const settlingTilt = hero && (Math.abs(assembly.current.rotation.y - targetY) > 0.0002 || Math.abs(assembly.current.rotation.x - targetX) > 0.0002);
-    if (heroHover || settlingTilt || (!reducedMotion && p > 0.26 && p < 0.54)) state.invalidate();
+    if (running && (heroHover || settlingTilt || (!reducedMotion && p > 0.26 && p < 0.54))) state.invalidate();
   });
   return (
     <>
@@ -848,12 +945,12 @@ function SceneContents({ progress, hero, reducedMotion, hoveredRef }) {
 }
 
 /** A fully procedural, reversible pizza-to-delivery story. No remote models or maps. */
-export default function PizzaScene({ progress = 0, hero = false, reducedMotion = false }) {
+export default function PizzaScene({ progressSource, progress = 0, active = true, hero = false, reducedMotion = false }) {
   const hoveredRef = useRef(false);
   const invalidateRef = useRef(null);
   return (
-    <Canvas orthographic shadows frameloop="demand" dpr={[1, 1.65]} camera={{ position: [0, 7, 6], near: 0.1, far: 50, zoom: 85 }} gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }} style={{ width: "100%", height: "100%", background: "transparent", touchAction: "pan-y" }} onPointerEnter={() => { hoveredRef.current = true; invalidateRef.current?.(); }} onPointerLeave={() => { hoveredRef.current = false; invalidateRef.current?.(); }} onCreated={({ gl, invalidate }) => { invalidateRef.current = invalidate; gl.setClearColor(0x000000, 0); gl.shadowMap.type = THREE.PCFSoftShadowMap; gl.toneMapping = THREE.ACESFilmicToneMapping; gl.toneMappingExposure = 1.05; }}>
-      <SceneContents progress={progress} hero={hero} reducedMotion={reducedMotion} hoveredRef={hoveredRef} />
+    <Canvas orthographic shadows frameloop="demand" dpr={CANVAS_DPR} camera={CANVAS_CAMERA} gl={CANVAS_GL} style={{ width: "100%", height: "100%", background: "transparent", touchAction: "pan-y" }} onPointerEnter={() => { hoveredRef.current = true; invalidateRef.current?.(); }} onPointerLeave={() => { hoveredRef.current = false; invalidateRef.current?.(); }} onCreated={({ gl, invalidate }) => { invalidateRef.current = invalidate; gl.setClearColor(0x000000, 0); gl.shadowMap.type = THREE.PCFSoftShadowMap; gl.toneMapping = THREE.ACESFilmicToneMapping; gl.toneMappingExposure = 1.05; }}>
+      <SceneContents progress={progress} progressSource={progressSource} active={active} hero={hero} reducedMotion={reducedMotion} hoveredRef={hoveredRef} />
     </Canvas>
   );
 }

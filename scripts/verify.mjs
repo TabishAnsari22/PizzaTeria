@@ -45,6 +45,7 @@ try {
   await page.waitForTimeout(850);
   await page.locator('.story-section').screenshot({ path: 'artifacts/desktop-story.png', timeout: 60000 });
   const story = await page.locator('.journey').evaluate(el => ({ top: el.offsetTop, height: el.offsetHeight }));
+  assert.equal(story.height - 1000, 7800, 'The scrollable pizza journey should be exactly twice the previous 3900px at this viewport');
   await page.addStyleTag({ content: 'html{scroll-behavior:auto!important}' });
   for (const [name, progress] of [['dough', .01], ['ingredients', .22], ['fire', .4], ['box', .72], ['delivery', .94], ['reverse', .22]]) {
     await page.evaluate(({ top, height, progress }) => window.scrollTo({ top: top + (height - innerHeight) * progress, behavior: 'instant' }), { ...story, progress });

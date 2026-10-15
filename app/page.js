@@ -33,9 +33,11 @@ function Hero() {
   const ref = useRef(null);
   const reduce = useReducedMotion();
   const { scrollYProgress } = useScroll({ target: ref, offset: ['start start', 'end start'] });
-  const y = useTransform(scrollYProgress, [0, 1], [0, reduce ? 0 : 135]);
-  const rotate = useTransform(scrollYProgress, [0, 1], [-12, reduce ? -12 : 24]);
-  const orbit = useTransform(scrollYProgress, [0, 1], [-20, reduce ? -20 : 40]);
+  const smoothScroll = useSpring(scrollYProgress, { stiffness: 100, damping: 30, mass: .7, restDelta: .0001 });
+  const motionProgress = reduce ? scrollYProgress : smoothScroll;
+  const y = useTransform(motionProgress, [0, 1], [0, reduce ? 0 : 135]);
+  const rotate = useTransform(motionProgress, [0, 1], [-12, reduce ? -12 : 24]);
+  const orbit = useTransform(motionProgress, [0, 1], [-20, reduce ? -20 : 40]);
   const pointerX = useMotionValue(0);
   const pointerY = useMotionValue(0);
   const tiltX = useSpring(pointerY, { stiffness: 95, damping: 24 });
