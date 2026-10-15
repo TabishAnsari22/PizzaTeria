@@ -1,0 +1,11 @@
+node_modules/
+.next/
+out/
+dist/
+artifacts/
+.sites.local.json
+.openai/*.local.*
+.env*
+*.log
+playwright-report/
+test-results/

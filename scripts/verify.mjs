@@ -1,0 +1,63 @@
+import { chromium } from '@playwright/test';
+import { mkdir, writeFile } from 'node:fs/promises';
+import assert from 'node:assert/strict';
+
+const url = process.argv[2] || 'http://127.0.0.1:3000';
+await mkdir('artifacts', { recursive: true });
+const browser = await chromium.launch({ executablePath: 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe', headless: true, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-dev-shm-usage'] });
+const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1 });
+const errors = [];
+page.on('pageerror', error => errors.push(error.message));
+page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
+try {
+  page.setDefaultTimeout(60000);
+  await page.goto(url, { waitUntil: 'networkidle', timeout: 120000 });
+  await page.evaluate(() => document.fonts.ready);
+  await page.waitForFunction(() => document.querySelector('.hero-pizza')?.complete && document.querySelector('.hero-pizza')?.naturalWidth > 0);
+  await page.waitForTimeout(1500);
+  await page.screenshot({ path: 'artifacts/desktop-home.png' });
+  assert.equal(await page.locator('h1').count(), 1);
+  await page.getByRole('button', { name: 'Signatures', exact: true }).click();
+  assert.equal(await page.locator('.pizza-card').count(), 2);
+  await page.getByRole('button', { name: 'Add Hot Honey Diavola to bag', exact: true }).click();
+  await page.getByRole('button', { name: 'Open bag, 1 items' }).click();
+  await page.getByRole('dialog').waitFor();
+  await page.getByRole('button', { name: 'Add one Hot Honey Diavola' }).click();
+  assert.equal(await page.locator('.quantity span').textContent(), '2');
+  await page.getByRole('button', { name: 'Let’s make it happen' }).click();
+  await page.getByLabel('Your name').fill('Forno Preview');
+  await page.getByLabel('Phone number').fill('03001234567');
+  await page.getByLabel('Delivery address').fill('123 Garden Street, Lahore');
+  await page.getByRole('button', { name: 'Place demo order' }).click();
+  await page.getByText('That’s amore.').waitFor();
+  await page.getByRole('button', { name: 'Keep exploring' }).click();
+  await page.getByRole('button', { name: 'All pizzas', exact: true }).click();
+  assert.equal(await page.locator('.pizza-card').count(), 4);
+  const story = await page.locator('.journey').evaluate(el => ({ top: el.offsetTop, height: el.offsetHeight }));
+  await page.addStyleTag({ content: 'html{scroll-behavior:auto!important}' });
+  for (const [name, progress] of [['dough', .01], ['ingredients', .22], ['fire', .4], ['box', .72], ['delivery', .94], ['reverse', .22]]) {
+    await page.evaluate(({ top, height, progress }) => window.scrollTo({ top: top + (height - innerHeight) * progress, behavior: 'instant' }), { ...story, progress });
+    await page.waitForTimeout(1500);
+    await page.screenshot({ path: `artifacts/desktop-${name}.png`, timeout: 60000 });
+    console.log(`3D stage checked: ${name}`);
+  }
+  assert.equal(await page.locator('.journey-scene canvas').count(), 1, '3D canvas should render');
+  assert.equal(await page.locator('.scene-fallback').count(), 0, 'WebGL fallback should not be necessary');
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(1000);
+  await page.screenshot({ path: 'artifacts/mobile-home.png' });
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'Mobile must not overflow horizontally');
+  await page.getByRole('button', { name: 'Open navigation' }).click();
+  await page.getByRole('navigation', { name: 'Mobile navigation' }).getByRole('link', { name: 'The menu', exact: true }).click();
+  assert.equal(await page.getByRole('button', { name: 'Open navigation' }).getAttribute('aria-expanded'), 'false');
+  await page.screenshot({ path: 'artifacts/mobile-menu.png' });
+  const mobileStory = await page.locator('.journey').evaluate(el => ({ top: el.offsetTop, height: el.offsetHeight }));
+  await page.evaluate(({ top, height }) => window.scrollTo({ top: top + (height - innerHeight) * .65, behavior: 'instant' }), mobileStory);
+  await page.waitForTimeout(900);
+  await page.screenshot({ path: 'artifacts/mobile-journey.png' });
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  await writeFile('artifacts/browser-errors.json', JSON.stringify(errors, null, 2));
+  assert.deepEqual(errors.filter(error => !error.includes('Download the React DevTools')), [], 'Browser must not report runtime or asset errors');
+  console.log('PASS: desktop, mobile, menu filters, bag quantity, demo checkout, all 3D stages, reverse scroll, asset loading, no browser errors.');
+} finally { await browser.close(); }
